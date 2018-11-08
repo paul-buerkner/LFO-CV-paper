@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1540454123566.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "62F7E3F1",
+    "lastKnownWriteTime" : 1541033424,
+    "last_content_update" : 1541033424701,
+    "path" : "C:/Users/paulb/Dropbox/Paper/2018_PSIS_LFO_CV/LFO_simulations/sim_AR_models.R",
+    "project_path" : "sim_AR_models.R",
+    "properties" : {
+        "cursorPosition" : "19,0",
+        "scrollLine" : "0",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
