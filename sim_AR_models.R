@@ -9,21 +9,20 @@ control <- list(adapt_delta = 0.95)
 # SEED <- 121
 # set.seed(SEED)
 
-nsims <- 1
+nsims <- 5
 conditions <- expand.grid(
-  N = 200, M = 1, L = 25, B = NA,
+  N = 200, M = c(1, 4), L = 25, B = c(NA, 10),
   model = c("constant", "AR2_only", "AR2_linear", "AR2_quadratic"),
   k_thres = c(0.5, 0.6, 0.7),
   sim = seq_len(nsims)
 )
 conditions$res <- list(list())
 
-J <- seq_len(nrow(conditions))
-
-cl <- makeCluster(1)
+cl <- makeCluster(2)
 registerDoParallel(cl)
 
-conditions$res[I] <- 
+J <- seq_len(nrow(conditions))
+conditions$res[J] <- 
   foreach(j = J, .packages = c("brms", "loo")) %dopar% 
   sim_fun(j, conditions, chains = chains, iter = iter, 
           warmup = warmup, control = control)

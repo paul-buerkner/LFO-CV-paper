@@ -33,7 +33,7 @@ summarize_elpds <- function(elpds) {
 }
 
 seq_pos <- function(from, to, ...) {
-  if (from > to || is.infinite(from) || is.infinite(to)) {
+  if (from > to) {
     out <- integer(0)
   } else {
     out <- seq.int(from, to, ...)
@@ -70,7 +70,7 @@ exact_lfo <- function(fit, M, L, B = NA) {
     to <- min(i + B - 1, N)
     fit_i <- update(
       fit, newdata = df[-(i:to), , drop = FALSE], 
-      recompile = FALSE
+      recompile = FALSE, refresh = 0
     )
     ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
     loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
@@ -97,12 +97,15 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
   loglikm <- loglik <- matrix(nrow = nsamples(fit), ncol = N)
   out <- rep(NA, N)
   fit_i <- fit
+  # observations to predict
   ids <- (N - M + 1):(L + 1)
-  i_refit <- N - M + 1
+  # last observation included in the model fitting
+  i_refit <- N
   refits <- ks <- numeric(0)
-
-  if ((N - M + 2) <= N) {
-    loglik[, (N - M + 2):N] <- log_lik(fit_i)[, (N - M + 2):N, drop = FALSE]
+  # no isolated predictions of the last M - 1 observations
+  ind_init <- seq_pos(N - M + 2, N)
+  if (length(ind_init)) {
+    loglik[, ind_init] <- log_lik(fit_i)[, ind_init, drop = FALSE] 
   }
   for (i in ids) {
     ioos <- 1:(i + M - 1)
@@ -110,33 +113,33 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
     ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
     loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
     loglik[, i] <- ll[, i]
-    
-    # perform importance sampling
-    ind1_logratio <- i:min(i + B - 1, i_refit - 1)
+    # observations over which to perform importance sampling
+    ind1_logratio <- i:min(i + B - 1, i_refit)
     logratio <- sum_log_ratios(loglik, ind1_logratio)
     if (B < Inf) {
-      # in the block version, some observations need to be added back again
-      ind2_logratio <- seq_pos(max(i + B, i_refit), i_refit + B - 1)
+      # in the block version some observations need to be added back again
+      ind2_logratio <- seq_pos(max(i + B, i_refit + 1), min(i_refit + B, N))
       logratio <- logratio - sum_log_ratios(loglik, ind2_logratio)
     }
     psis_part <- suppressWarnings(psis(logratio))
     k <- pareto_k_values(psis_part)
     ks <- c(ks, k)
-    
     if (k > k_thres) {
-      # refit the model based on the first i-1 observations
-      i_refit <- i
+      # refit the model based on the first i - 1 observations
+      i_refit <- i - 1
       refits <- c(refits, i)
       ind_rm <- i:min(i + B - 1, N)
       fit_i <- update(
         fit, newdata = df[-ind_rm, , drop = FALSE],
-        recompile = FALSE
+        recompile = FALSE, refresh = 0
       )
+      # perform exact LFO for the ith observation
       ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
       loglik[, i] <- ll[, i]
       loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
       out[i] <- log_mean_exp(loglikm[, i])
     } else {
+      # PSIS approximate LFO is possible
       lw_i <- weights(psis_part, normalize = TRUE)[, 1]
       out[i] <- log_sum_exp(lw_i + loglikm[, i])
     }
@@ -158,19 +161,19 @@ fit_model <- function(cond, ...) {
   ar_autocor <- cor_ar(~ stime, p = 2)
   if (model == "constant") {
     df$y <- rnorm(N)
-    fit <- brm(y ~ 1, data = df, ...)
+    fit <- brm(y ~ 1, data = df, refresh = 0, ...)
   } else if (model == "AR2_only") {
     df$y <- as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
       y ~ 1, data = df, prior = ar_prior,
-      autocor = ar_autocor, ...
+      autocor = ar_autocor, refresh = 0, ...
     )
   } else if (model == "AR2_linear") {
     df$y <- 17 * stime +
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
       y ~ 1 + stime, data = df, prior = ar_prior,
-      autocor = ar_autocor, ...
+      autocor = ar_autocor, refresh = 0, ...
     )
   } else if (model == "AR2_quadratic") {
     df$y <- 17 * stime - 25 * stime^2 + 
@@ -178,7 +181,7 @@ fit_model <- function(cond, ...) {
     fit <- brm(
       y ~ 1 + stime + I(stime^2), 
       data = df, prior = ar_prior,
-      autocor = ar_autocor, ...
+      autocor = ar_autocor, refresh = 0, ...
     )
   } else {
     stop("Model '", model, "' is not supported.")
@@ -197,20 +200,20 @@ sim_fun <- function(j, conditions, ...) {
   # LOO-CV
   loo_cv <- loo(log_lik(fit)[, (L + 1):N])
   # Exact LFO-CV
-  exact_elpds_1sap <- exact_lfo(fit, M = M, L = L, B = B)
-  exact_elpd_1sap <- summarize_elpds(exact_elpds_1sap)
+  lfo_exact_elpds <- exact_lfo(fit, M = M, L = L, B = B)
+  lfo_exact_elpd <- summarize_elpds(lfo_exact_elpds)
   # Approximate LFO-CV
-  approx_elpds_1sap <- approx_lfo(
+  lfo_approx_elpds <- approx_lfo(
     fit, M = M, L = L, B = B, k_thres = k_thres
   )
-  approx_elpd_1sap <- summarize_elpds(approx_elpds_1sap)
+  lfo_approx_elpd <- summarize_elpds(lfo_approx_elpds)
   # return all relevant information
   list(
     # fit requires too much space
     loo_cv = loo_cv,
-    exact_elpds_1sap = exact_elpds_1sap,
-    exact_elpd_1sap = exact_elpd_1sap,
-    approx_elpds_1sap = approx_elpds_1sap,
-    approx_elpd_1sap = approx_elpd_1sap
+    lfo_exact_elpds = lfo_exact_elpds,
+    lfo_exact_elpd = lfo_exact_elpd,
+    lfo_approx_elpds = lfo_approx_elpds,
+    lfo_approx_elpd = lfo_approx_elpd
   )
 }
