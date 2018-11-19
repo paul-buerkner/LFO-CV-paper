@@ -29,7 +29,7 @@ conditions$res[J] <-
 
 stopCluster(cl)
 
-file <- "results/lfo_models.rds"
+file <- "results/lfo_ar_models.rds"
 if (file.exists(file)) {
   old_conditions <- read_rds(file)
   conditions <- bind_rows(old_conditions, conditions)
