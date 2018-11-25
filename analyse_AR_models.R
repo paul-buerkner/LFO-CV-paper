@@ -204,10 +204,10 @@ ggsave("plots/LFO_4SAP_AR_models_rel_refits.jpeg", width = 6, height = 6)
 
 
 # block-LFO-4SAP plots ------------------------------------------------------------------
-lfo_res_4sap <- lfo_ar_models %>% filter(!is.na(B), M == 4)
+block_lfo_res_4sap <- lfo_ar_models %>% filter(!is.na(B), M == 4)
 
 # plot differences to exact LFO
-lfo_res_4sap %>% 
+block_lfo_res_4sap %>% 
   select(elpd_diff_lfo, model, k_thres) %>%
   ggplot(aes(x = elpd_diff_lfo)) +
   facet_grid(model ~ k_thres, scales = "free_y") +
@@ -221,13 +221,13 @@ ggsave("plots/block_LFO_4SAP_AR_models_ELPD.jpeg", width = 7, height = 6)
 
 
 # plot number of refits
-lfo_res_4sap %>% 
+block_lfo_res_4sap %>% 
   ggplot(aes(x = nrefits)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = nrefits),
     linetype = 2,
-    data = lfo_res_4sap %>%
+    data = block_lfo_res_4sap %>%
       group_by(model, k_thres) %>%
       summarise(nrefits = mean(nrefits))
   ) +
@@ -239,13 +239,13 @@ lfo_res_4sap %>%
 ggsave("plots/block_LFO_4SAP_AR_models_nrefits.jpeg", width = 6, height = 6)
 
 # plot relative number of refits
-lfo_res_4sap %>% 
+block_lfo_res_4sap %>% 
   ggplot(aes(x = rel_nrefits)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = rel_nrefits),
     linetype = 2,
-    data = lfo_res_4sap %>%
+    data = block_lfo_res_4sap %>%
       group_by(model, k_thres) %>%
       summarise(rel_nrefits = mean(rel_nrefits))
   ) +

@@ -67,11 +67,13 @@ exact_lfo <- function(fit, M, L, B = NA) {
   for (i in ids) {
     ioos <- 1:(i + M - 1)
     oos <- i:(i + M - 1)
-    to <- min(i + B - 1, N)
-    fit_i <- update(
-      fit, newdata = df[-(i:to), , drop = FALSE], 
-      recompile = FALSE, refresh = 0
-    )
+    ind_rm <- i:min(i + B - 1, N)
+    newdf <- df
+    # future and past values should not be treated as one time-series
+    # in the block version as they have a block of missing obs between them
+    newdf$group <- c(rep("past", i - 1), rep("future", nrow(newdf) - i + 1))
+    newdf <- newdf[-ind_rm, , drop = FALSE]
+    fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
     ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
     loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
   }
@@ -129,10 +131,12 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
       i_refit <- i - 1
       refits <- c(refits, i)
       ind_rm <- i:min(i + B - 1, N)
-      fit_i <- update(
-        fit, newdata = df[-ind_rm, , drop = FALSE],
-        recompile = FALSE, refresh = 0
-      )
+      newdf <- df
+      # future and past values should not be treated as one time-series
+      # in the block version as they have a block of missing obs between them
+      newdf$group <- c(rep("past", i - 1), rep("future", nrow(newdf) - i + 1))
+      newdf <- newdf[-ind_rm, , drop = FALSE]
+      fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
       # perform exact LFO for the ith observation
       ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
       loglik[, i] <- ll[, i]
@@ -156,9 +160,9 @@ fit_model <- function(cond, ...) {
   model <- cond$model
   time <- seq_len(N)
   stime <- scale_unit_interval(time)
-  df <- data.frame(time = time, stime = stime)
+  df <- data.frame(time = time, stime = stime, group = "past")
   ar_prior <- prior(normal(0, 0.5), class = "ar")
-  ar_autocor <- cor_ar(~ stime, p = 2)
+  ar_autocor <- cor_ar(~ stime | group, p = 2)
   if (model == "constant") {
     df$y <- rnorm(N)
     fit <- brm(y ~ 1, data = df, refresh = 0, ...)
