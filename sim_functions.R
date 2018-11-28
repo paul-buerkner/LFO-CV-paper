@@ -166,6 +166,12 @@ fit_model <- function(cond, ...) {
   if (model == "constant") {
     df$y <- rnorm(N)
     fit <- brm(y ~ 1, data = df, refresh = 0, ...)
+  } else if (model == "linear") {
+    df$y <- 17 * stime + rnorm(N) 
+    fit <- brm(y ~ stime, data = df, refresh = 0, ...)
+  } else if (model == "quadratic") {
+    df$y <- 17 * stime - 25 * stime^2 + rnorm(N)
+    fit <- brm(y ~ stime + I(stime^2), data = df, refresh = 0, ...)
   } else if (model == "AR2_only") {
     df$y <- as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
@@ -176,14 +182,14 @@ fit_model <- function(cond, ...) {
     df$y <- 17 * stime +
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
-      y ~ 1 + stime, data = df, prior = ar_prior,
+      y ~ stime, data = df, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
   } else if (model == "AR2_quadratic") {
     df$y <- 17 * stime - 25 * stime^2 + 
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
-      y ~ 1 + stime + I(stime^2), 
+      y ~ stime + I(stime^2), 
       data = df, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )

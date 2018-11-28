@@ -9,8 +9,14 @@ control <- list(adapt_delta = 0.95)
 
 nsims <- 5
 conditions <- expand.grid(
-  N = 200, M = c(1, 4), L = 25, B = c(NA, 10),
-  model = c("constant", "AR2_only", "AR2_linear", "AR2_quadratic"),
+  N = 200, 
+  M = c(1, 4), 
+  L = 25, 
+  B = c(NA, 10),
+  model = c(
+    "constant", "linear", "quadratic",
+    "AR2_only", "AR2_linear", "AR2_quadratic"
+  ),
   k_thres = c(0.5, 0.6, 0.7),
   sim = seq_len(nsims)
 )
