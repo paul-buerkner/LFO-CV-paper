@@ -6,8 +6,6 @@ chains <- 1
 iter <- 5000
 warmup <- 1000
 control <- list(adapt_delta = 0.95)
-# SEED <- 121
-# set.seed(SEED)
 
 nsims <- 5
 conditions <- expand.grid(
