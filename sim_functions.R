@@ -116,12 +116,15 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
     loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
     loglik[, i] <- ll[, i]
     # observations over which to perform importance sampling
-    ind1_logratio <- i:min(i + B - 1, i_refit)
-    logratio <- sum_log_ratios(loglik, ind1_logratio)
+    ilr1 <- i:min(i + B - 1, i_refit)
+    logratio <- sum_log_ratios(loglik, ilr1)
     if (B < Inf) {
       # in the block version some observations need to be added back again
-      ind2_logratio <- seq_pos(max(i + B, i_refit + 1), min(i_refit + B, N))
-      logratio <- logratio - sum_log_ratios(loglik, ind2_logratio)
+      ilr2 <- seq_pos(max(i + B, i_refit + 1), min(i_refit + B, N))
+      if (length(ilr2)) {
+        ll_after_block <- log_lik(fit_i, newdata = df[ilr2, , drop = FALSE])
+        logratio <- logratio - sum_log_ratios(ll_after_block) 
+      }
     }
     psis_part <- suppressWarnings(psis(logratio))
     k <- pareto_k_values(psis_part)
@@ -172,20 +175,20 @@ fit_model <- function(cond, ...) {
   } else if (model == "quadratic") {
     df$y <- 17 * stime - 25 * stime^2 + rnorm(N)
     fit <- brm(y ~ stime + I(stime^2), data = df, refresh = 0, ...)
-  } else if (model == "AR2_only") {
+  } else if (model == "AR2-only") {
     df$y <- as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
       y ~ 1, data = df, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
-  } else if (model == "AR2_linear") {
+  } else if (model == "AR2-linear") {
     df$y <- 17 * stime +
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
       y ~ stime, data = df, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
-  } else if (model == "AR2_quadratic") {
+  } else if (model == "AR2-quadratic") {
     df$y <- 17 * stime - 25 * stime^2 + 
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(

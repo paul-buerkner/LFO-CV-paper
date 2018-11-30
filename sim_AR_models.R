@@ -15,7 +15,7 @@ conditions <- expand.grid(
   B = c(NA, 10),
   model = c(
     "constant", "linear", "quadratic",
-    "AR2_only", "AR2_linear", "AR2_quadratic"
+    "AR2-only", "AR2-linear", "AR2-quadratic"
   ),
   k_thres = c(0.5, 0.6, 0.7),
   sim = seq_len(nsims)

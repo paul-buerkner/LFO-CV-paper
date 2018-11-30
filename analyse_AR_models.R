@@ -4,11 +4,14 @@ colors <- unname(unlist(bayesplot::color_scheme_get()[c(6, 2)]))
 theme_set(theme_bw())
 
 # data preparation
+mlevels <- c(
+  "constant", "linear", "quadratic",
+  "AR2-only", "AR2-linear", "AR2-quadratic"
+)
 lfo_ar_models <- read_rds("results/lfo_ar_models.rds") %>%
   as_tibble() %>%
   mutate(
-    model = gsub("_", "-", model),
-    model = factor(model, levels = unique(model)),
+    model = factor(model, levels = mlevels),
     k_thres = paste0("k = ", k_thres),
     elpd_loo = map_dbl(res, ~ .$loo_cv$estimates["elpd_loo", 1]),
     elpd_exact_lfo = map_dbl(res, ~ .$lfo_exact_elpd[1]),
@@ -17,8 +20,7 @@ lfo_ar_models <- read_rds("results/lfo_ar_models.rds") %>%
     elpd_diff_loo = elpd_loo - elpd_exact_lfo,
     nrefits = lengths(map(res, ~ attr(.$lfo_approx_elpds, "refits"))),
     rel_nrefits = nrefits / (N - L)
-  ) %>%
-  select(-res)
+  )
 
 
 # LFO-1SAP plots ------------------------------------------------------------------
