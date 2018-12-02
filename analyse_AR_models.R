@@ -93,7 +93,8 @@ ggsave("plots/LFO_1SAP_AR_models_rel_refits.jpeg", width = 6, height = 6)
 
 
 # block-LFO-1SAP plots ------------------------------------------------------------
-block_lfo_res <- lfo_ar_models %>% filter(!is.na(B), M == 1)
+block_lfo_res <- lfo_ar_models %>% 
+  filter(!is.na(B), M == 1)
 
 # plot differences to exact LFO
 block_lfo_res %>% 
@@ -152,7 +153,8 @@ ggsave("plots/block_LFO_1SAP_AR_models_rel_refits.jpeg", width = 6, height = 6)
 
 
 # LFO-4SAP plots ------------------------------------------------------------------
-lfo_res_4sap <- lfo_ar_models %>% filter(is.na(B), M == 4)
+lfo_res_4sap <- lfo_ar_models %>% 
+  filter(is.na(B), M == 4)
 
 # plot differences to exact LFO
 lfo_res_4sap %>% 
@@ -206,7 +208,8 @@ ggsave("plots/LFO_4SAP_AR_models_rel_refits.jpeg", width = 6, height = 6)
 
 
 # block-LFO-4SAP plots ------------------------------------------------------------------
-block_lfo_res_4sap <- lfo_ar_models %>% filter(!is.na(B), M == 4)
+block_lfo_res_4sap <- lfo_ar_models %>% 
+  filter(!is.na(B), M == 4)
 
 # plot differences to exact LFO
 block_lfo_res_4sap %>% 

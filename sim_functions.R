@@ -69,10 +69,13 @@ exact_lfo <- function(fit, M, L, B = NA) {
     oos <- i:(i + M - 1)
     ind_rm <- i:min(i + B - 1, N)
     newdf <- df
-    # future and past values should not be treated as one time-series
-    # in the block version as they have a block of missing obs between them
-    newdf$group <- c(rep("past", i - 1), rep("future", nrow(newdf) - i + 1))
-    newdf <- newdf[-ind_rm, , drop = FALSE]
+    if (max(ind_rm) < N) {
+      # responses of the left-out block need to be coded as 
+      # missing to retain a single consistent time series
+      newdf$y[ind_rm] <- NA
+    } else {
+      newdf <- newdf[-ind_rm, , drop = FALSE]
+    }
     fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
     ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
     loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
@@ -122,8 +125,11 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
       # in the block version some observations need to be added back again
       ilr2 <- seq_pos(max(i + B, i_refit + 1), min(i_refit + B, N))
       if (length(ilr2)) {
-        ll_after_block <- log_lik(fit_i, newdata = df[ilr2, , drop = FALSE])
-        logratio <- logratio - sum_log_ratios(ll_after_block) 
+        # observations in the left-out block are modeled as missing
+        ind_B <- i:(i + B - 1)
+        subdf <- df[seq_len(max(ilr2)), , drop = FALSE]
+        ll_after_block <- log_lik(fit_i, newdata = subdf, oos = ind_B)
+        logratio <- logratio - sum_log_ratios(ll_after_block, ilr2) 
       }
     }
     psis_part <- suppressWarnings(psis(logratio))
@@ -135,10 +141,13 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
       refits <- c(refits, i)
       ind_rm <- i:min(i + B - 1, N)
       newdf <- df
-      # future and past values should not be treated as one time-series
-      # in the block version as they have a block of missing obs between them
-      newdf$group <- c(rep("past", i - 1), rep("future", nrow(newdf) - i + 1))
-      newdf <- newdf[-ind_rm, , drop = FALSE]
+      if (max(ind_rm) < N) {
+        # responses of the left-out block need to be coded as 
+        # missing to retain a single consistent time series
+        newdf$y[ind_rm] <- NA
+      } else {
+        newdf <- newdf[-ind_rm, , drop = FALSE]
+      }
       fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
       # perform exact LFO for the ith observation
       ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
@@ -163,36 +172,36 @@ fit_model <- function(cond, ...) {
   model <- cond$model
   time <- seq_len(N)
   stime <- scale_unit_interval(time)
-  df <- data.frame(time = time, stime = stime, group = "past")
+  df <- data.frame(time = time, stime = stime)
   ar_prior <- prior(normal(0, 0.5), class = "ar")
-  ar_autocor <- cor_ar(~ stime | group, p = 2)
+  ar_autocor <- cor_ar(~ stime, p = 2)
   if (model == "constant") {
     df$y <- rnorm(N)
-    fit <- brm(y ~ 1, data = df, refresh = 0, ...)
+    fit <- brm(y | mi() ~ 1, data = df, refresh = 0, ...)
   } else if (model == "linear") {
     df$y <- 17 * stime + rnorm(N) 
-    fit <- brm(y ~ stime, data = df, refresh = 0, ...)
+    fit <- brm(y | mi() ~ stime, data = df, refresh = 0, ...)
   } else if (model == "quadratic") {
     df$y <- 17 * stime - 25 * stime^2 + rnorm(N)
-    fit <- brm(y ~ stime + I(stime^2), data = df, refresh = 0, ...)
+    fit <- brm(y | mi() ~ stime + I(stime^2), data = df, refresh = 0, ...)
   } else if (model == "AR2-only") {
     df$y <- as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
-      y ~ 1, data = df, prior = ar_prior,
+      y | mi() ~ 1, data = df, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
   } else if (model == "AR2-linear") {
     df$y <- 17 * stime +
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
-      y ~ stime, data = df, prior = ar_prior,
+      y | mi() ~ stime, data = df, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
   } else if (model == "AR2-quadratic") {
     df$y <- 17 * stime - 25 * stime^2 + 
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
-      y ~ stime + I(stime^2), 
+      y | mi() ~ stime + I(stime^2), 
       data = df, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
