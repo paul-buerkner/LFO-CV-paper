@@ -5,3 +5,6 @@
 Archiv/
 results/Archiv
 plots/Archiv
+cherry_blossoms_cache
+cherry_blossoms_files
+results/fit_cb.rds

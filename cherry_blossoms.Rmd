@@ -1,0 +1,80 @@
+---
+title: "LFO of Cherry Blossom Data"
+author: "Paul Bürkner & Aki Vehtari"
+output:
+  html_document:
+    theme: default
+encoding: UTF-8
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+pre {
+  overflow-x: auto;
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+---
+
+```{r setup, include=FALSE, cache=FALSE}
+knitr::opts_chunk$set(cache = TRUE, fig.width = 10)
+```
+
+```{r general_options, cache=FALSE}
+source("sim_functions.R")
+library(tidyverse)
+library(brms)
+options(width = 160, mc.cores = 2)
+theme_set(theme_default())
+```
+
+```{r}
+cherry <- read.csv("data/cherry_blossoms.csv")
+cherry_temp <- cherry[!is.na(cherry$temp), ]
+cherry_doy <- cherry[!is.na(cherry$doy), ]
+```
+
+Fit a spline model:
+```{r}
+fit_cb <- brm(
+  formula = bf(doy ~ s(year, k = 40)),
+  data = cherry_doy, chain = 2, seed = 583829, 
+  control = list(adapt_delta = 0.99),
+  file = "results/fit_cb"
+)
+plot(marginal_effects(fit_cb), points = TRUE)
+```
+
+Perform exact LFO:
+```{r}
+L <- 100
+M <- 1
+if (file.exists("results/exact_lfo_cb.rds")) {
+  exact_lfo_cb <- read_rds("results/exact_lfo_cb.rds")
+} else {
+  exact_lfo_cb <- exact_lfo(fit_cb, M = M, L = L)
+  write_rds(exact_lfo_cb, file = "examples/exact_lfo_cb.rds")
+}
+summarize_elpds(exact_lfo_cb)
+```
+
+Perform approximate LFO:
+```{r}
+if (file.exists("results/approx_lfo_cb.rds")) {
+  approx_lfo_cb <- read_rds("results/approx_lfo_cb.rds")
+} else {
+  approx_lfo_cb <- approx_lfo(fit_cb, M = M, L = L)
+  write_rds(approx_lfo_cb, file = "examples/approx_lfo_cb.rds")
+}
+summarize_elpds(approx_lfo_cb)
+```
+
+Perform approximate LOO:
+```{r}
+(loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ]))
+```
