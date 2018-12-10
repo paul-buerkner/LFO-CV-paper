@@ -39,7 +39,7 @@ lfo_res %>%
 lfo_res %>% 
   select(elpd_diff_lfo, elpd_diff_loo, model, k_thres) %>%
   gather("Type", "elpd_diff", elpd_diff_lfo, elpd_diff_loo) %>%
-  ggplot(aes(x = elpd_diff, fill = Type)) +
+  ggplot(aes(x = elpd_diff, y = ..density.., fill = Type)) +
   facet_grid(model ~ k_thres, scales = "free_y") +
   geom_histogram(alpha = 0.7) +
   scale_fill_manual(
@@ -56,7 +56,7 @@ ggsave("plots/LFO_1SAP_AR_models_ELPD.jpeg", width = 7, height = 6)
 
 # plot number of refits
 lfo_res %>% 
-  ggplot(aes(x = nrefits)) +
+  ggplot(aes(x = nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = nrefits),
@@ -74,7 +74,7 @@ ggsave("plots/LFO_1SAP_AR_models_nrefits.jpeg", width = 6, height = 6)
 
 # plot relative number of refits
 lfo_res %>% 
-  ggplot(aes(x = rel_nrefits)) +
+  ggplot(aes(x = rel_nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = rel_nrefits),
@@ -100,7 +100,7 @@ block_lfo_res <- lfo_ar_models %>%
 block_lfo_res %>% 
   select(elpd_diff_lfo, elpd_diff_loo, model, k_thres) %>%
   gather("Type", "elpd_diff", elpd_diff_lfo, elpd_diff_loo) %>%
-  ggplot(aes(x = elpd_diff, fill = Type)) +
+  ggplot(aes(x = elpd_diff, y = ..density.., fill = Type)) +
   facet_grid(model ~ k_thres, scales = "free_y") +
   geom_histogram(alpha = 0.7) +
   scale_fill_manual(
@@ -117,7 +117,7 @@ ggsave("plots/block_LFO_1SAP_AR_models_ELPD.jpeg", width = 7, height = 6)
 
 # plot number of refits
 block_lfo_res %>% 
-  ggplot(aes(x = nrefits)) +
+  ggplot(aes(x = nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = nrefits),
@@ -135,7 +135,7 @@ ggsave("plots/block_LFO_1SAP_AR_models_nrefits.jpeg", width = 6, height = 6)
 
 # plot relative number of refits
 block_lfo_res %>% 
-  ggplot(aes(x = rel_nrefits)) +
+  ggplot(aes(x = rel_nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = rel_nrefits),
@@ -159,7 +159,7 @@ lfo_res_4sap <- lfo_ar_models %>%
 # plot differences to exact LFO
 lfo_res_4sap %>% 
   select(elpd_diff_lfo, model, k_thres) %>%
-  ggplot(aes(x = elpd_diff_lfo)) +
+  ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
   facet_grid(model ~ k_thres, scales = "free_y") +
   geom_histogram(alpha = 0.7, fill = colors[1]) +
   labs(x = 'Difference to exact LFO-CV', y = "Density") +
@@ -172,7 +172,7 @@ ggsave("plots/LFO_4SAP_AR_models_ELPD.jpeg", width = 7, height = 6)
 
 # plot number of refits
 lfo_res_4sap %>% 
-  ggplot(aes(x = nrefits)) +
+  ggplot(aes(x = nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = nrefits),
@@ -190,7 +190,7 @@ ggsave("plots/LFO_4SAP_AR_models_nrefits.jpeg", width = 6, height = 6)
 
 # plot relative number of refits
 lfo_res_4sap %>% 
-  ggplot(aes(x = rel_nrefits)) +
+  ggplot(aes(x = rel_nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = rel_nrefits),
@@ -214,7 +214,7 @@ block_lfo_res_4sap <- lfo_ar_models %>%
 # plot differences to exact LFO
 block_lfo_res_4sap %>% 
   select(elpd_diff_lfo, model, k_thres) %>%
-  ggplot(aes(x = elpd_diff_lfo)) +
+  ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
   facet_grid(model ~ k_thres, scales = "free_y") +
   geom_histogram(alpha = 0.7, fill = colors[1]) +
   labs(x = 'Difference to exact block-LFO-CV', y = "Density") +
@@ -227,7 +227,7 @@ ggsave("plots/block_LFO_4SAP_AR_models_ELPD.jpeg", width = 7, height = 6)
 
 # plot number of refits
 block_lfo_res_4sap %>% 
-  ggplot(aes(x = nrefits)) +
+  ggplot(aes(x = nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = nrefits),
@@ -245,7 +245,7 @@ ggsave("plots/block_LFO_4SAP_AR_models_nrefits.jpeg", width = 6, height = 6)
 
 # plot relative number of refits
 block_lfo_res_4sap %>% 
-  ggplot(aes(x = rel_nrefits)) +
+  ggplot(aes(x = rel_nrefits, y = ..density..)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = rel_nrefits),
