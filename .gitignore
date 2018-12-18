@@ -7,4 +7,6 @@ results/Archiv
 plots/Archiv
 cherry_blossoms_cache
 cherry_blossoms_files
-results/fit_cb.rds
+lake_huron_cache
+lake_huron_files
+models

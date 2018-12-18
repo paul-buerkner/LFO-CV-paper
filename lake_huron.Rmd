@@ -1,0 +1,179 @@
+---
+title: "LFO-CV of Lake Huron Data"
+author: "Paul Bürkner & Aki Vehtari"
+output:
+  html_document:
+    theme: default
+encoding: UTF-8
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+pre {
+  overflow-x: auto;
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+---
+
+# {.tabset}
+
+## Setup
+
+```{r setup, include=FALSE, cache=FALSE}
+knitr::opts_chunk$set(cache = TRUE, fig.width = 10)
+```
+
+```{r general_options, cache=FALSE}
+source("sim_functions.R")
+library(tidyverse)
+library(brms)
+options(width = 160, mc.cores = 2)
+theme_set(theme_default())
+```
+
+```{r}
+data("LakeHuron")
+N <- length(LakeHuron)
+df <- data.frame(
+  y = as.numeric(LakeHuron),
+  year = as.numeric(time(LakeHuron)),
+  time = 1:N
+)
+```
+
+## Model
+
+Fit an AR(4) model:
+```{r}
+fit_lh <- brm(
+  y | mi() ~ 1, 
+  data = df, 
+  autocor = cor_ar(~time, p = 4), 
+  prior = prior(normal(0, 0.5), class = "ar"),
+  control = list(adapt_delta = 0.95), chains = 2,
+  file = "models/fit_lh", seed = 1234
+)
+summary(fit_lh)
+```
+
+```{r}
+preds <- posterior_predict(fit_lh)
+preds <- cbind(
+  Estimate = colMeans(preds), 
+  Q5 = apply(preds, 2, quantile, probs = 0.05),
+  Q95 = apply(preds, 2, quantile, probs = 0.95)
+)
+
+ggplot(cbind(df, preds), aes(x = year, y = Estimate)) +
+  geom_smooth(aes(ymin = Q5, ymax = Q95), stat = "identity", size = 0.5) +
+  geom_point(aes(y = y)) + 
+  labs(y = "Water Level (ft)", x = "Year")
+```
+
+## LFO-CV of 1-SAP
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+L <- 20
+M <- 1
+exact_lfo_lh <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, 
+  file = "results/exact_lfo_1sap_lh.rds"
+)
+approx_lfo_lh <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, 
+  file = "results/approx_lfo_1sap_lh.rds"
+)
+```
+
+```{r}
+summarize_elpds(exact_lfo_lh)
+summarize_elpds(approx_lfo_lh)
+```
+
+```{r}
+ks <- attributes(approx_lfo_lh)$ks
+ids <- N:(L + 1)
+plot_ks(ks, ids)
+```
+
+Perform approximate LOO-CV:
+```{r}
+(loo_lh <- loo(fit_lh, newdata = df[-seq_len(L), ]))
+```
+
+## LFO-CV of 4-SAP
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+L <- 20
+M <- 4
+exact_lfo_lh <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, 
+  file = "results/exact_lfo_4sap_lh.rds"
+)
+approx_lfo_lh <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, 
+  file = "results/approx_lfo_4sap_lh.rds"
+)
+```
+
+```{r}
+summarize_elpds(exact_lfo_lh)
+summarize_elpds(approx_lfo_lh)
+```
+
+
+## LFO-CV of block-1-SAP
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+L <- 20
+M <- 1
+B <- 10
+exact_lfo_lh <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, B = B,
+  file = "results/exact_lfo_block1sap_lh.rds"
+)
+approx_lfo_lh <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, B = B,
+  file = "results/approx_lfo_block1sap_lh.rds"
+)
+```
+
+```{r}
+summarize_elpds(exact_lfo_lh)
+summarize_elpds(approx_lfo_lh)
+```
+
+```{r}
+ks <- attributes(approx_lfo_lh)$ks
+ids <- N:(L + 1)
+plot_ks(ks, ids)
+```
+
+
+
+## LFO-CV of block-4-SAP
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+L <- 20
+M <- 4
+B <- 10
+exact_lfo_lh <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, B = B,
+  file = "results/exact_lfo_block4sap_lh.rds"
+)
+approx_lfo_lh <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, B = B,
+  file = "results/approx_lfo_block4sap_lh.rds"
+)
+```
+
+```{r}
+summarize_elpds(exact_lfo_lh)
+summarize_elpds(approx_lfo_lh)
+```

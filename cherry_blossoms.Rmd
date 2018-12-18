@@ -1,5 +1,5 @@
 ---
-title: "LFO of Cherry Blossom Data"
+title: "LFO-CV of Cherry Blossoms Data"
 author: "Paul Bürkner & Aki Vehtari"
 output:
   html_document:
@@ -21,6 +21,10 @@ pre code {
 
 ---
 
+# {.tabset}
+
+## Setup
+
 ```{r setup, include=FALSE, cache=FALSE}
 knitr::opts_chunk$set(cache = TRUE, fig.width = 10)
 ```
@@ -39,42 +43,43 @@ cherry_temp <- cherry[!is.na(cherry$temp), ]
 cherry_doy <- cherry[!is.na(cherry$doy), ]
 ```
 
+## Model
+
 Fit a spline model:
 ```{r}
 fit_cb <- brm(
   formula = bf(doy ~ s(year, k = 40)),
   data = cherry_doy, chain = 2, seed = 583829, 
   control = list(adapt_delta = 0.99),
-  file = "results/fit_cb"
+  file = "models/fit_cb"
 )
 plot(marginal_effects(fit_cb), points = TRUE)
 ```
 
-Perform exact LFO:
+## LFO-CV with 1-SAP
+
+Perform exact LFO-CV:
 ```{r}
 L <- 100
 M <- 1
-if (file.exists("results/exact_lfo_cb.rds")) {
-  exact_lfo_cb <- read_rds("results/exact_lfo_cb.rds")
-} else {
-  exact_lfo_cb <- exact_lfo(fit_cb, M = M, L = L)
-  write_rds(exact_lfo_cb, file = "examples/exact_lfo_cb.rds")
-}
+exact_lfo_cb <- compute_lfo(
+  fit_cb, type = "exact", M = M, L = L, 
+  file = "results/exact_lfo_1sap_cb.rds"
+)
 summarize_elpds(exact_lfo_cb)
 ```
 
-Perform approximate LFO:
+Perform approximate LFO-CV:
 ```{r}
-if (file.exists("results/approx_lfo_cb.rds")) {
-  approx_lfo_cb <- read_rds("results/approx_lfo_cb.rds")
-} else {
-  approx_lfo_cb <- approx_lfo(fit_cb, M = M, L = L)
-  write_rds(approx_lfo_cb, file = "examples/approx_lfo_cb.rds")
-}
+approx_lfo_cb <- compute_lfo(
+  fit_cb, type = "approx", M = M, L = L, 
+  file = "results/approx_lfo_1sap_cb.rds"
+)
 summarize_elpds(approx_lfo_cb)
 ```
 
-Perform approximate LOO:
+Perform approximate LOO-CV:
 ```{r}
 (loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ]))
 ```
+

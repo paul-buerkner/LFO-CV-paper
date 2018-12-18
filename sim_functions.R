@@ -32,6 +32,16 @@ summarize_elpds <- function(elpds) {
   c(ELPD = sum(elpds), SE = sqrt(length(elpds) * var(elpds)))
 }
 
+plot_ks <- function(ks, ids, thres = 0.6) {
+  dat_ks <- data.frame(ks = ks, ids = ids)
+  ggplot(dat_ks, aes(x = ids, y = ks)) + 
+    geom_point(aes(color = ks > thres), shape = 3, show.legend = FALSE) + 
+    geom_hline(yintercept = thres, linetype = 2, color = "red2") + 
+    scale_color_manual(values = c("cornflowerblue", "darkblue")) + 
+    labs(x = "Data point", y = "Pareto k") + 
+    ylim(-0.5, 1.5)
+}
+
 seq_pos <- function(from, to, ...) {
   if (from > to) {
     out <- integer(0)
@@ -165,11 +175,21 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
   out
 }
 
-fit_model <- function(cond, ...) {
+compute_lfo <- function(fit, type = c("exact", "approx"), file = NULL, ...) {
+  type <- match.arg(type)
+  if (!is.null(file) && file.exists(file)) {
+    return(readRDS(file))
+  }
+  lfo_fun <- get(paste0(type, "_lfo"), mode = "function")
+  out <- lfo_fun(fit, ...)
+  if (!is.null(file)) {
+    saveRDS(out, file)
+  }
+  out
+}
+
+fit_model <- function(model, N, ...) {
   require(brms)
-  stopifnot(is.data.frame(cond) && NROW(cond) == 1L)
-  N <- cond$N
-  model <- cond$model
   time <- seq_len(N)
   stime <- scale_unit_interval(time)
   df <- data.frame(time = time, stime = stime)
@@ -213,12 +233,14 @@ fit_model <- function(cond, ...) {
 
 sim_fun <- function(j, conditions, ...) {
   # simulate data and fit the corresponding model
-  fit <- fit_model(cond = conditions[j, ], ...)
   N <- conditions$N[j]
   M <- conditions$M[j]
   L <- conditions$L[j]
   B <- conditions$B[j]
   k_thres <- conditions$k_thres[j]
+  model <- conditions$model[j]
+  fit <- fit_model(model = model, N = N, ...)
+
   # LOO-CV
   loo_cv <- loo(log_lik(fit)[, (L + 1):N])
   # Exact LFO-CV
