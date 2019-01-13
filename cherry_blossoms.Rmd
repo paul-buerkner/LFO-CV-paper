@@ -83,3 +83,26 @@ Perform approximate LOO-CV:
 (loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ]))
 ```
 
+
+## LFO-CV with 4-SAP
+
+Perform exact LFO-CV:
+```{r}
+L <- 100
+M <- 4
+exact_lfo_cb <- compute_lfo(
+  fit_cb, type = "exact", M = M, L = L, 
+  file = "results/exact_lfo_4sap_cb.rds"
+)
+summarize_elpds(exact_lfo_cb) 
+```
+
+Perform approximate LFO-CV:
+```{r}
+approx_lfo_cb <- compute_lfo(
+  fit_cb, type = "approx", M = M, L = L, 
+  file = "results/approx_lfo_4sap_cb.rds"
+)
+summarize_elpds(approx_lfo_cb) 
+```
+
