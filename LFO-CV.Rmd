@@ -235,7 +235,7 @@ distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
 then do we refit the model using only observations before $i^\star_1$ and then
 restart the process. Until the next refit, we have $J_i = \{i, \ldots, i^\star_1
 -1 \}$ for $i < i^\star_1$, as the refitted model only contains the observations
-up to index $N^\star_1 = i^\star_1 - 1$.
+up to index $N^\star_1 = i^\star_1 - 1$. An illustration of the above described procedure is shown in Figure \@ref(fig:vis-msap).
 
 In some cases we may only need to refit once and in other cases we will find a
 value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
@@ -245,7 +245,32 @@ is the minimum number of observations we have deemed acceptable for making
 predictions (setting $L=0$ means predictions of all observations should be
 computed).
 
-TODO: visualisation
+```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predicitions. The `x` represents the currently predicted observation. In the shown example, the model was last refit at the 7th observation."}
+df <- data.frame(
+  obs = rep(1:9, 3),
+  i = factor(rep(5:7, each = 9)),
+  Status = c(
+    rep("included", 4), rep("PSIS adjusted", 2), rep("left out", 3),
+    rep("included", 5), rep("PSIS adjusted", 1), rep("left out", 3),
+    rep("included", 6), rep("left out", 3)
+  )
+) %>%
+  mutate(
+    Status = factor(Status, levels = c("left out", "included", "PSIS adjusted"))
+  )
+
+ggplot(df, aes(obs, i, fill = Status)) +
+  geom_tile(height = 0.9, width = 1, col = "black") +
+  annotate(
+    'text', x = c(5, 6, 7), y = c(1, 2, 3), 
+    label = "x",
+    parse = TRUE, size = 10
+  ) +
+  labs(x = "Observation", y = "Predicted observation") +
+  scale_x_continuous(breaks = 1:9) +
+  bayesplot::theme_default() +
+  NULL
+```
 
 The threshold $\tau$ is crucial to the accuracy and speed of the proposed
 algorithm. If $\tau$ is too large, we need fewer refits and thus achieve higher
@@ -301,8 +326,7 @@ conditionally independent as is the case, for instance, in autoregressive models
 be modeled as missing values in order to retain the integreity of the
 time-series' predictions after the block. A related example from spatial
 statistics, in which the modeling of missing values is required for valid
-inference, can be found in
-@buerkner:non-factorizable.
+inference, can be found in @buerkner:non-factorizable.
 
 Another complexity concerns the PSIS approximation of block-LFO-CV: Not only
 does the approximating model contain more observations than the current model
@@ -311,7 +335,7 @@ observations that are present in the actual model. The latter observations are
 those right after the currently left-out block, which are included in the
 current model, but not in the approximating model as they were part of the block
 at the time the approximating model was (re-)fit. A visualitation of this
-situation is provided in Figure X.  More formally, let $\overline{J}_i$ be the
+situation is provided in Figure X. More formally, let $\overline{J}_i$ be the
 index set of observations that are missing in the approximating model at the
 time of predicting observation $i$. We find
 
