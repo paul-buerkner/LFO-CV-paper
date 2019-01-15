@@ -268,7 +268,8 @@ ggplot(df, aes(obs, i, fill = Status)) +
   geom_tile(height = 0.9, width = 1, col = "black") +
   annotate(
     'text', x = 3:5, y = c(1, 2, 3), 
-    label = "X", parse = TRUE, size = 10
+    label = "X", parse = TRUE, 
+    size = 10, color = "white"
   ) +
   labs(x = "Observation", y = "Predicted observation") +
   scale_x_continuous(breaks = 1:9) +
@@ -388,11 +389,12 @@ ggplot(df, aes(obs, i, fill = Status)) +
   geom_tile(height = 0.9, width = 1, col = "black") +
   annotate(
     'text', x = 3:5, y = 1:3, 
-    label = "X", parse = TRUE, size = 10
+    label = "X", parse = TRUE, 
+    size = 10, color = "white"
   ) +
   annotate(
     'text', x = c(4:6, 5:7, 6:8), y = rep(1:3, each = 3), 
-    label = "B", parse = TRUE, size = 10
+    label = "B", parse = TRUE, size = 10, color = "white"
   ) +
   labs(x = "Observation", y = "Predicted observation") +
   scale_x_continuous(breaks = 1:9) +
