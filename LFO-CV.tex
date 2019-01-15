@@ -314,7 +314,7 @@ computed).
 \begin{figure}
 \centering
 \includegraphics{LFO-CV_files/figure-latex/vis-msap-1.pdf}
-\caption{\label{fig:vis-msap}Visualisation of PSIS approximated one-step-ahead predicitions. The \texttt{x} represents the currently predicted observation. In the shown example, the model was last refit at the 7th observation.}
+\caption{\label{fig:vis-msap}Visualisation of PSIS approximated one-step-ahead predicitions leaving out all future values. Predicted observations are indicated by \textbf{X}. In the shown example, the model was last refit at the \(i^\star = 5\)th observation.}
 \end{figure}
 
 The threshold \(\tau\) is crucial to the accuracy and speed of the proposed
@@ -402,6 +402,12 @@ r_i^{(s)} \propto \frac{\prod_{j \in \overline{J}_i} p(y_j \,|\, \,\theta^{(s)})
 
 before they are stabilized and further processed using PSIS (see Section
 \ref{approximate_MSAP}).
+
+\begin{figure}
+\centering
+\includegraphics{LFO-CV_files/figure-latex/vis-block-msap-1.pdf}
+\caption{\label{fig:vis-block-msap}Visualisation of PSIS approximated one-step-ahead predicitions leaving out a block of \(B = 3\) future values. Predicted observations are indicated by \textbf{X}. Observation in the left out block are indicated by \textbf{B}. In the shown example, the model was last refit at the \(i^\star = 5\)th observation.}
+\end{figure}
 
 \hypertarget{simulations}{%
 \section{Simulations}\label{simulations}}
@@ -500,7 +506,7 @@ $\infty$ & 1 & 0.5 & 0.03 & 0.08 & 0.17 & 0.05 & 0.09 & 0.18\\
 \bottomrule
 \end{tabular}
 \begin{tablenotes}
-\item Note: Results are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. Abbreviations: $tau$ = threshold of the Pareto-k-estimates; M = number of predicted future observations; B = number of left-out future observations.
+\item Note: Results are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. Abbreviations: $\tau$ = threshold of the Pareto-k-estimates; M = number of predicted future observations; B = number of left-out future observations.
 \end{tablenotes}
 \end{threeparttable}
 \end{table}
