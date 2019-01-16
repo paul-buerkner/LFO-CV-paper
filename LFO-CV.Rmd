@@ -2,7 +2,9 @@
 title: "Approximate leave-future-out cross-validation for time series models"
 author: "Paul-Christian Bürkner, Jonah Gabry, Aki Vehtari"
 abstract: |
-  One of the most common goals of a time series analysis is to use the observed series to inform predictions for future observations. In the absence of any actual new data to predict, cross-validation can be used to measure a model's predictive accuracy for instance for the purpose of model comparison or selection. As exact cross-validation is often practically infeasible for Bayesian models because it requires too much time, approximate cross-validation methods have been developed; most notably methods for leave-one-out cross-validation (LOO-CV). However, for time-series models, it does not make sense to leave out observations one at a time because then we are allowing information from the future to influence predictions of the past.  To apply the idea of cross-validation to time-series models, we thus need some form of leave-future-out cross-validation (LFO-CV). Like exact LOO-CV, exact LFO-CV requires refitting the model many times to different subsets of the data, which is computationally very costly for most nontrivial examples, in particular for Bayesian models. Using Pareto-smoothed importance sampling, we propose a method for approximating exact LFO-CV that drastically reduces the computational burden while also providing informative diagnostics about the quality of the approximation. 
+  One of the common goals of a time series analysis is to use the observed series to inform predictions for future observations. In the absence of any actual new data to predict, cross-validation can be used to estimate a model's future predictive accuracy, for instance, for the purpose of model comparison or selection. As exact cross-validation for Bayesian models is often computationally expensive, approximate cross-validation methods have been developed; most notably methods for leave-one-out cross-validation (LOO-CV).
+  Although LOO-CV can be used for time series model assessment, if the actual prediction task is to predict future given the past, LOO-CV provides optimistic estimate as the information from the future observations is available to influence predictions of the past.
+  To properly take into account the prediction task and time series structure, we can use leave-future-out cross-validation (LFO-CV). Like exact LOO-CV, exact LFO-CV requires refitting the model many times to different subsets of the data. Using Pareto-smoothed importance sampling, we propose a method for approximating exact LFO-CV that drastically reduces the computational cost while also providing informative diagnostics about the quality of the approximation.
 keywords: keywords
 lang: en-US
 class: man
@@ -61,20 +63,20 @@ options(mc.cores = max(1, parallel::detectCores() - 1))
 A time series is a set of observations each one being recorded at a specific
 time [@brockwell2002]. In statistics, a wide range of time series models has
 been developed, which find application in nearly all empirical sciences [e.g.,
-see @brockwell2002; @hamilton1994]. One of the most common goals of a time series
-analysis is to use the observed series to inform predictions for future
-observations. When working with discrete time series -- in which time points form
+see @brockwell2002; @hamilton1994]. One common goal of a time series
+analysis is to use the observed series to inform predictions for future.
+When working with discrete time -- in which time points form
 discrete set -- we will refer to the task of predicting a sequence of $M$ future
-observations as $M$-step-ahead prediction ($M$-SAP). Fortunately, once we have
+observations as $M$-step-ahead prediction ($M$-SAP). Once we have
 fit a Bayesian model and can sample from the posterior predictive distribution,
 it is straightforward to generate predictions as far into the future as we want.
 It is also straightforward to evaluate the $M$-SAP performance of a time series
 model by comparing the predictions to the observed sequence of $M$ future data
 points once they become available.
 
-Unfortunately, we are often in the position of having to use a model to inform
-decisions *before* we can collect the future observations required for assessing
-the predictive performance. If we have many competing models we may also need to
+It is common that we would like to estimate the future predictive performance
+*before* we can collect the future observations.
+If we have many competing models we may also need to
 first decide which of the models (or which combination of the models) we should
 rely on for predictions [@geisser1979; @hoeting1999; @vehtari2002; @ando2010; 
 @vehtari2012]. In the absence of new data with which to evaluate predictive
@@ -84,43 +86,40 @@ split into two subsets. Based on the first subset we fit the statistical model
 and then evaluate its predictive accuracy for the second subset. We may do this
 once or many times, each time leaving out another subset.
 
-If there were no time dependence in the data or if the focus is to assess the
+If there were no time ordering in the data or if the focus is to assess the
 non-time-dependent part of the model, we could use methods like leave-one-out
 cross-validation (LOO-CV). For a data set with $N$ observations, we refit the
 model $N$ times, each time leaving out one of the $N$ observations and assessing
-how well the model predicts the left-out observation. LOO-CV is very expensive
-computationally in most realistic settings, but the Pareto smoothed importance
+how well the model predicts the left-out observation. LOO-CV is often computationally
+expensive, but the Pareto smoothed importance
 sampling [PSIS; @vehtari2017loo; @vehtari2017psis] algorithm allows for
 approximating exact LOO-CV with PSIS-LOO-CV. PSIS-LOO-CV requires only a single
 fit of the full model and comes with diagnostics for assessing the validity of
 the approximation.
 
-With a time series we can do something similar to LOO-CV but, except in a few
-cases, it does not make sense to leave out observations one at a time because
-then we are allowing information from the future to influence predictions of the
+LOO-CV is fine for time series model assessment if we are interested in the performance  of interpolation within time series or the local conditional distribution. If we are interested instead in the performance of extrapolation to new future time points, leave out observations one at a time allows information from the future to influence predictions of the
 past (i.e., times $t + 1, t+2, \ldots$ should not be used to predict for time
-$t$). To apply the idea of cross-validation to the $M$-SAP case, instead of
-leave-*one*-out cross-validation we need some form of leave-*future*-out
-cross-validation (LFO-CV). As we will demonstrate in this paper, LFO-CV
+$t$). To apply the idea of cross-validation to the $M$-SAP case, we need some form
+of leave-*future*-out cross-validation (LFO-CV). LFO-CV
 does not refer to one particular prediction task but rather to various possible
-cross-validation approaches that all involve some form of prediction for new
-time series data. Like exact LOO-CV, exact LFO-CV requires refitting the model
-many times to different subsets of the data, which is computationally very
-costly for most nontrivial examples, in particular for Bayesian analyses where
+cross-validation approaches that all involve some form of prediction for future time. Like exact LOO-CV, exact LFO-CV requires refitting the model
+many times to different subsets of the data, which is computationally
+costly for most nontrivial examples, in particular for Bayesian inference where
 refitting the model means estimating a new posterior distribution rather than a
 point estimate.
 
-Although PSIS-LOO-CV provides an efficient approximation to exact LOO-CV, until
-now there has not been an analogous approximation to exact LFO-CV that
-drastically reduces the computational burden while also providing informative
-diagnostics about the quality of the approximation. In this paper we
+% Although PSIS-LOO-CV provides an efficient approximation to exact LOO-CV, until
+% now there has not been an analogous approximation to exact LFO-CV that
+% drastically reduces the computational burden while also providing informative
+% diagnostics about the quality of the approximation.
+In this paper, we extend the ideas from PSIS-LOO-CV and 
 present PSIS-LFO-CV, an algorithm that typically only requires refitting the
 time-series model a small number times and will make LFO-CV tractable for many
 more realistic applications than previously possible.
 
 The structure of the paper is as follows. In Section \ref{m-sap} we introduce
 the idea and various forms of $M$-step-ahead predictions and how to approximate
-it using PSIS. In Section \ref{simulations}, we evaluate the accuaracy of the
+it using PSIS. In Section \ref{simulations}, we evaluate the accuracy of the
 approximation using extensive simulations, before we provide two real world case
 studies about the change of level of Lake Huron and the day of the cherry
 blossoms in Japan across the years in Section \ref{case-studies}. We end with a
@@ -132,7 +131,7 @@ discussion of the usefulness and limitations of the approach in Section
 Assume we have a time series of observations $y = (y_1, y_2, \ldots, y_N)$ 
 and let $L$ be the _minimum_ number of observations from the series that
 we will require before making predictions for future data. Depending on the
-application and how informative the data is, it may not be possible to make
+application and how informative the data are, it may not be possible to make
 reasonable predictions for $y_{i}$ based on $(y_1, \dots, y_{i-1})$ until $i$ is
 large enough so that we can learn enough about the time series to predict future
 observations. Setting $L=10$, for example, means that we will only assess
@@ -192,9 +191,9 @@ are discussed in more detail in @buerkner:non-factorizable.
 
 ## Approximate $M$-step-ahead predictions {#approximate_MSAP}
 
-Unfortunately, the math above makes use of the posterior distributions from many
-different fits of the model to different subsets of the data. That is, to obtain
-the predictive density $p(y_{i<M} \,|\, y_{<i})$ requires fitting a model to
+The above equations include the posterior distributions from many
+different fits of the model to different subsets of the data. To obtain
+the predictive density $p(y_{i<M} \,|\, y_{<i})$ a model is fit to
 only the first $i-1$ data points, and we will need to do this for every value of
 $i$ under consideration (all $i \in \{L + 1, \ldots, N - M + 1\}$).
 
@@ -242,10 +241,9 @@ value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We repeat the refitting as few times as
 is required (only if $k > \tau$) until we arrive at $i = L + 1$. Recall that $L$
 is the minimum number of observations we have deemed acceptable for making
-predictions (setting $L=0$ means predictions of all observations should be
-computed).
+predictions (setting $L=0$ means predicting only based on the prior).
 
-```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predicitions leaving out all future values. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
+```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out all future values. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
 status_levels <- c("included", "left out", "left out (PSIS)")
 df <- data.frame(
   obs = rep(1:9, 3),
@@ -281,22 +279,23 @@ ggplot(df, aes(obs, i, fill = Status)) +
 The threshold $\tau$ is crucial to the accuracy and speed of the proposed
 algorithm. If $\tau$ is too large, we need fewer refits and thus achieve higher
 speed, but accuracy is likely to suffer. If $\tau$ is too small, we get high
-accuracy but a lot of refits to that speed will drop noticably. When performing
+accuracy but a lot of refits to that speed will drop noticeably. When performing
 exact CV of Bayesian models, almost all of the computational time is spend
-fitting models, while the time needed to do predictions is negligeble in
+fitting models, while the time needed to do predictions is negligible in
 comparison. That is, a reduction of the number of refits basically implies a
 proportional reduction in the overall time necessary for CV of Bayesian models.
 
-A mathematical analysis of the Pareto distribution reveals that approximate CV
-via PSIS is very likely to be highly accuracte as long as $k < 0.5$
-[@vehtari2017psis]. In practice, PSIS-LOO-CV turned out to be robust for 
-$k < 0.7$ [@vehtari2017loo]. That is, for PSIS-LFO-CV introduced in the
+When diagnostic Pareto-$k<0.5$ importance sampling estimate has finite variance, and based on the central limit theorem the convergence of the estimate is fast and then approximate CV via PSIS is highly accurate
+[@vehtari2017psis]. For \(0.5 \leq k < 1\), generalized central limit theorem holds, but the convergence rate drops quickly when $k$ increases [@vehtari2017psis].
+In practice, PSIS-LOO-CV  has practically useful error rates for 
+$k < 0.7$ [@vehtari2017loo]. For PSIS-LFO-CV introduced in the
 present paper, we can expect an appropriate threshold to be somewhere between
 $0.5 \leq \tau \leq 0.7$. It is unlikely to be as high as $\tau = 0.7$, as the
-error made in the prediction of a certain observation $i$ will propagate to the
-predictions of observations $i-1, i-2, \ldots$ until a refit is performed. That
-is, problematic observations with high $k$ are likely to have stronger effects
-in LFO-CV than LOO-CV. We will come back to the issue of setting approriate
+errors are not independent. If there is a large error when leaving out $i$th
+observation, , then there is likely to be a large error when leaving out observations
+$i-1, i-2, \ldots$ until a refit is performed. That
+is, highly influential observations with high $k$ are likely to have stronger effects
+for total estimate in LFO-CV than LOO-CV. We will come back to the issue of setting appropriate
 thresholds in Section \ref{simulations}.
 
 ## Block $M$-step-ahead predictions {#approximate_blockMSAP}
@@ -314,11 +313,11 @@ to as block-$M$-SAP.
 The block-$M$-SAP version closely resembles the basic $M$-SAP only if values in
 the distant future, $y_{>B}$, contain little information about the current
 observations being predicted, apart from just increasing precision of the 
-estimated parameters. Whether this assumption is justified will depend
+estimated global parameters. Whether this assumption is justified will depend
 on the data and model. That is, if the time-series is non-stationary, distant
 future value will inform overall trends in the data and thus clearly inform
 predictions of the current observations being left-out. As a result, 
-block-LFO-CV is only recommended for stationary time-series and corrsponding
+block-LFO-CV is only recommended for stationary time-series and corresponding
 models.
 
 There are more complexities that arise in block-$M$-SAP that we did not have to
@@ -329,7 +328,7 @@ where predictions just depend on the parameters and not on the former values of
 the time-series itself. However, if the model's predictions are *not*
 conditionally independent as is the case, for instance, in autoregressive models
 (see Section \ref{simulations}), the observations of the left-out block have to
-be modeled as missing values in order to retain the integreity of the
+be modeled as missing values in order to retain the integrity of the
 time-series' predictions after the block. A related example from spatial
 statistics, in which the modeling of missing values is required for valid
 inference, can be found in @buerkner:non-factorizable.
@@ -340,7 +339,7 @@ whose predictions we are approximating, but it also may *not* contain
 observations that are present in the actual model. The latter observations are
 those right after the currently left-out block, which are included in the
 current model, but not in the approximating model as they were part of the block
-at the time the approximating model was (re-)fit. A visualitation of this
+at the time the approximating model was (re-)fit. A visualisation of this
 situation is provided in Figure X. More formally, let $\overline{J}_i$ be the
 index set of observations that are missing in the approximating model at the
 time of predicting observation $i$. We find
@@ -363,7 +362,7 @@ r_i^{(s)} \propto \frac{\prod_{j \in \overline{J}_i} p(y_j \,|\, \,\theta^{(s)})
 before they are stabilized and further processed using PSIS (see Section
 \ref{approximate_MSAP}).
 
-```{r vis-block-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predicitions leaving out a block of $B = 3$ future values. Predicted observations are indicated by **X**. Observation in the left out block are indicated by **B**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
+```{r vis-block-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out a block of $B = 3$ future values. Predicted observations are indicated by **X**. Observation in the left out block are indicated by **B**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
 status_levels <- c("included", "included (PSIS)", "left out", "left out (PSIS)")
 df <- data.frame(
   obs = rep(1:9, 3),
@@ -413,7 +412,7 @@ fitting took on values of $B = \infty$ (i.e., leaving out the whole future), or
 $B = 10$ (i.e. leaving out only a block of 10 observations).
 The threshold $\tau$ of the Pareto $k$ estimates was varied between 
 $k = 0.5$ to $k = 0.7$ in steps of $0.1$. In addition, we evaluated six 
-different data generating models with linear and/or quadatric terms and/or
+different data generating models with linear and/or quadratic terms and/or
 autoregressive terms of order 2 (see Table X for an overview). These models are
 also illustrated graphically in Figure \ref{fig:simmodels}. In all conditions,
 the time-series consistent of $N = 200$ observations and the minimal number
@@ -523,8 +522,8 @@ increased substantially with decreasing $\tau$ (see Table
 bias in PSIS-LFO-CV, but also reduced the number of required refits by roughly 
 $30\%$. Another $30\%$ reduction in the number of refits was achieved by
 using $\tau = 0.7$ but at the cost of disproportionally increasing the 
-positive bias in PSIS-LFO-CV. Further, PSIS-LOO-CV turned out to be a bad
-measure of 1-SAP performance when leaving out all future values for all
+positive bias in PSIS-LFO-CV. As predicted by theory, LOO-CV is a biased
+estimate of 1-SAP performance when leaving out all future values for all
 non-constant models in particular those with a trend in the time-series (see
 light-blue histograms in Figure \ref{fig:1sap}).
 
@@ -608,14 +607,12 @@ lfo_sims_4sap %>%
 ```
 
 Results of the block-1-SAP simulations leaving out a block of $B = 10$ future
-values are visualized in Figure \ref{fig:block1sap}. It can be seen that, in
-this case, PSIS-LFO-CV provides an closed to unbiased approximation of the
+values are shown in Figure \ref{fig:block1sap}. PSIS-LFO-CV provides almost unbiased
+estimate of the
 corresponding exact LFO-CV for all investigated conditions, that is regardless
 of the threshold $\tau$ or the data generating model. The number of required
 refits was not only much smaller than when leaving out all future values, but
-practically approched zero for most conditions. Notably, PSIS-LOO-CV was
-similarily accurate than PSIS-LFO-CV as indicated by the strongly overlapping
-histograms in Figure \ref{fig:block1sap}. This is plausible given that LOO-CV
+practically approached zero for most conditions. PSIS-LOO-CV has also small bias, but higher variance than PSIS-LFO-CV. This is plausible given that LOO-CV
 and LFO-CV of block-1-SAP only differ in whether they include the relatively few
 observations in the block when fitting the approximating model.
 
@@ -641,11 +638,11 @@ block_lfo_sims_1sap %>%
 ```
 
 Results of the block-4-SAP simulations leaving out a block of $B = 10$ future
-values (see Figure \ref{fig:block4sap}) were overall similar to the
-corresponding 1-SAP simulations. In particular, PSIS-LFO-CV turned out to be
-close to unbiased in the approximation of exact LFO-CV. However, the accuracy of
-PSIS-LFO-CV for block-4-SAP turned out to be highly variable when applied to
-autogressive models (see the last three rows in Figure \ref{fig:block4sap}),
+values (see Figure \ref{fig:block4sap}) are overall similar to the
+corresponding 1-SAP simulations. In particular, PSIS-LFO-CV has small bias compared to
+the exact LFO-CV. However, the accuracy of
+PSIS-LFO-CV for block-4-SAP is highly variable when applied to
+autoregressive models (see the last three rows in Figure \ref{fig:block4sap}),
 something that is also visible in block-1-SAP although to a smaller degree. This
 seems to be a counter-intuitive result given that predictions should be more
 certain in the block version as more observations are available to inform the
@@ -653,7 +650,7 @@ model. However, it can be explained as follows. In autoregressive models,
 predictions of future observations directly depend on past observations, that is
 predictions are not conditionally independent. This becomes a problem when
 dealing with observations that are missing in the approximating model right
-after the block of left out observations, since the directly preceeding
+after the block of left out observations, since the directly preceding
 observations are part of the block and are thus have to be treated as missing
 values (for details see Section \ref{approximate_blockMSAP}). This implies a
 disproportionally high variability in the predictions of observations right
@@ -685,7 +682,7 @@ performance, we will fit a model for 98 annual measurements of the water level
 (in feet) of [Lake Huron](https://en.wikipedia.org/wiki/Lake_Huron) from the
 years 1875--1972. This data set is found in the *datasets* R package, which is
 installed automatically with R [@R2018]. The time-series shows rather strong
-autocorrelation of the well as some trend towards lower levels for later points
+autocorrelation of the level as some trend towards lower levels for later points
 in time. We fit an AR(4) model and display the model implied predictions along
 with the observed values in Figure \ref{fig:lake-huron}.
 
@@ -772,16 +769,16 @@ sum_approx_lfo_4sap_lh <- summarize_elpds(approx_lfo_4sap_lh)[1]
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP where we
 leave out all future values. We compute 
-${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_1sap_lh, 2)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_1sap_lh, 2)`, 
+${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_1sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_1sap_lh, 1)`, 
 which are highly similar. Plotting the Pareto $k$ estimates reveals that the
 model had to be refit `r nrefits` times, out of a total of $N - L =$ 
 `r N - L` predicted observations (see Figure \ref{fig:pareto-k-lh}). On average, 
-this means one refit every `r round((N - L) / nrefits, 2)` observations, which
+this means one refit every `r round((N - L) / nrefits, 1)` observations, which
 implies a drastic speed increase as compared to exact LFO-CV.
 Performing LFO-CV of 4-SAP leaving out all future values, we compute
-${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_4sap_lh, 2)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_4sap_lh, 2)`, 
+${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_4sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_4sap_lh, 1)`, 
 which are again highly similar. Although did not see this pattern in this
 example, in general for increasing $M$, the approximation tends to become less
 accurate in absolute ELPD units, as the ELPD increment of each observation will
@@ -831,29 +828,29 @@ elpd_approx_lfo_block4sap_lh <- summarize_elpds(approx_lfo_block4sap_lh)[1]
 It is not entirely clear how stationary the time-series is as it may have a
 slight negative trend across time. However, the AR(4) model we are using assumes
 stationarity and it is appropriate to also use block-LFO-CV for this example, at
-least for illustrationary purposes. We choose to leave out a block of $B = 10$
+least for illustration. We choose to leave out a block of $B = 10$
 future values as the dependency of an AR(4) model will not reach that far into
 the future. That is, we will include all observations after this block when
 re-fitting the model.
 
 Approximate LFO-CV of block-1-SAP reveals 
-${\rm ELPD}_{\rm exact} =$ `r round(elpd_exact_lfo_block1sap_lh, 2)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(elpd_approx_lfo_block1sap_lh, 2)`, 
+${\rm ELPD}_{\rm exact} =$ `r round(elpd_exact_lfo_block1sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r round(elpd_approx_lfo_block1sap_lh, 1)`, 
 which are highly similar. Plotting the Pareto $k$ estimates reveals that the
 model had to be refit `r nrefits` times, out of a total of $N - L =$ 
 `r N - L` predicted observations (see Figure \ref{fig:pareto-k-lh-block}). On average, 
-this means one refit every `r round((N - L) / nrefits, 2)` observations, which
+this means one refit every `r round((N - L) / nrefits, 1)` observations, which
 again implies a drastic speed increase as compared to exact LFO-CV. What is more,
 we needed even fewer refits than in non-block LFO-CV, an observation we already
 made in our simulation in Section \ref{simulations}.
 Performing LFO-CV of block-4-SAP, we compute
-${\rm ELPD}_{\rm exact} =$ `r round(elpd_exact_lfo_block4sap_lh, 2)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(elpd_approx_lfo_block4sap_lh, 2)`, 
+${\rm ELPD}_{\rm exact} =$ `r round(elpd_exact_lfo_block4sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r round(elpd_approx_lfo_block4sap_lh, 1)`, 
 which are again similar but not quite a close as in the 1-SAP case.
 Since AR-models fall in the class of conditionally dependent models, predicting
 observations right after the left-out block may be quite difficult as shown
 in Section \ref{simulations}. However, for the present data set, the
-PSIS apprixmations of block-LFO-CV seem to have worked out just fine.
+PSIS approximations of block-LFO-CV seem to have worked out just fine.
 
 ```{r pareto-k-lh-block, fig.height=2.5, fig.cap="Pareto $k$ estimates for PSIS-LFO-CV of the Lake Huron model leaving out a block of 10 future values. The dotted red line indicates the threshold at which the refitting was necessary."}
 ks <- attributes(approx_lfo_block1sap_lh)$ks
@@ -882,7 +879,7 @@ blossom using a thin-plate regression spline [@wood2003] with a high number (40)
 of basis function to provide flexible non-linear smoothing of the time-series. A
 visualisation of both the data and the fitted model in provided in Figure
 \ref{fig:cherry-blossom}. While the time-series appears rather stable across
-earlier centuries, with substantial variation across consequtive years, there
+earlier centuries, with substantial variation across consecutive years, there
 are some clearly visible trends in the data. In particular in more recent years,
 the cherry blossom tended to happen much earlier than before, presumably as a
 result of climate change [@aono2008; @aono2010].
@@ -893,7 +890,7 @@ for reasonable predictions of future values, we will require at least $L = 100$
 historical observations (100 years) to make predictions. Further, we set a
 threshold of $\tau =$ `r k_thres` for the Pareto $k$ value at which define that
 refitting becomes necessary. As the time series is not stationary, in particular
-towards the end, we do not investigate the models perfomence in terms of
+towards the end, we do not investigate the models performance in terms of
 block-LFO-CV. Our fully reproducible analysis of this case study can be found at
 (add link).
 
@@ -948,15 +945,15 @@ sum_approx_lfo_4sap_cb <- summarize_elpds(approx_lfo_4sap_cb)[1]
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP where we leave
 out all future values. We compute ${\rm ELPD}_{\rm exact} =$ 
-`r round(sum_exact_lfo_1sap_cb, 2)` and ${\rm ELPD}_{\rm approx} =$ 
-`r round(sum_approx_lfo_1sap_cb, 2)`, which are highly similar. Plotting the 
+`r round(sum_exact_lfo_1sap_cb, 1)` and ${\rm ELPD}_{\rm approx} =$ 
+`r round(sum_approx_lfo_1sap_cb, 1)`, which are highly similar. Plotting the 
 Pareto $k$ estimates reveals that the model had to be refit `r nrefits` times,
 out of a total of $N - L =$ `r N - L` predicted observations (see Figure
 \ref{fig:pareto-k-lh}). On average, this means one refit every `r round((N - L)
-/ nrefits, 2)` observations, which implies a drastic speed increase as compared
+/ nrefits, 1)` observations, which implies a drastic speed increase as compared
 to exact LFO-CV. Performing LFO-CV of 4-SAP leaving out all future values, we
-compute ${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_4sap_cb, 2)` and ${\rm
-ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_4sap_cb, 2)`, which are again
+compute ${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_4sap_cb, 1)` and ${\rm
+ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_4sap_cb, 1)`, which are again
 similar, but not as close as in the 1-SAP case. This coincides with our simulation
 results which indicated an increasing variance of PSIS-LFO-CV for increasing $M$.
 Since, for constant threshold
@@ -981,18 +978,17 @@ future we leave out, either all future values (M-SAP) or only a block of more
 recent future values (block-M-SAP).
 
 For a set of common time-series models, we established via simulations that
-PSIS-LFO-CV is a close to unbiased approximation of exact LFO-CV if we choose
+PSIS-LFO-CV is almost unbiased approximation of exact LFO-CV if we choose
 the threshold $\tau$ of the Pareto-k-estimates to be not larger than $\tau =
-0.6$. As the number of required model refits, and thus the computiational time,
+0.6$. As the number of required model refits, and thus the computational time,
 increases with decreasing $\tau$, we currently see $\tau = 0.6$ as a good
-default when perfoming PSIS-LFO-CV. This is noticably smaller than the
+default when performing PSIS-LFO-CV. This is noticeably smaller than the
 recommended threshold for PSIS-LOO-CV of $\tau = 0.7$, because, in PSIS-LFO-CV,
-observations with high Pareto-k-estimates also influence the approximation of
-directly preceeding observations, thus having a stronger influence on the
-overall accuarcy than in PSIS-LOO-CV.
+the errors are dependent as highly influential observations also influence the approximation in the following iterations before refit, thus having a stronger influence on the
+overall accuracy than in PSIS-LOO-CV.
 
 Among other things, our simulations indicated that the accuracy of PSIS
-approximated block-M-SAP is highly variabiable for conditionally dependent
+approximated block-M-SAP is highly variable for conditionally dependent
 models such as autoregressive models (see Section \ref{sim_results} for
 details). Together with the fact that block-M-SAP is only theoretically
 reasonable for stationary time series, as the future will always be informative
@@ -1001,7 +997,7 @@ difficult spot. It appears to be a theoretically reasonable and empirically
 accurate choice only for conditionally independent models fit to stationary
 time-series. If the time-series is not too long and the corresponding model not
 too complex, so that a few more refits are acceptable, it might thus be more
-consistent and save to just using PSIS-LFO-CV of M-SAP not trying to approximate
+consistent and safe to just using PSIS-LFO-CV of M-SAP not trying to approximate
 block-M-SAP at all.
 
 Lastly, we want to briefly note that LFO-CV can also be used to compute marginal
