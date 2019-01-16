@@ -195,7 +195,7 @@ discussion of the usefulness and limitations of the approach in Section
 Assume we have a time series of observations \(y = (y_1, y_2, \ldots, y_N)\)
 and let \(L\) be the \emph{minimum} number of observations from the series that
 we will require before making predictions for future data. Depending on the
-application and how informative the data is, it may not be possible to make
+application and how informative the data are, it may not be possible to make
 reasonable predictions for \(y_{i}\) based on \((y_1, \dots, y_{i-1})\) until \(i\) is
 large enough so that we can learn enough about the time series to predict future
 observations. Setting \(L=10\), for example, means that we will only assess
@@ -256,9 +256,9 @@ are discussed in more detail in \citet{buerkner:non-factorizable}.
 \hypertarget{approximate_MSAP}{%
 \subsection{\texorpdfstring{Approximate \(M\)-step-ahead predictions}{Approximate M-step-ahead predictions}}\label{approximate_MSAP}}
 
-Unfortunately, the math above makes use of the posterior distributions from many
-different fits of the model to different subsets of the data. That is, to obtain
-the predictive density \(p(y_{i<M} \,|\, y_{<i})\) requires fitting a model to
+The above equations include the posterior distributions from many
+different fits of the model to different subsets of the data. To obtain
+the predictive density \(p(y_{i<M} \,|\, y_{<i})\) a model is fit to
 only the first \(i-1\) data points, and we will need to do this for every value of
 \(i\) under consideration (all \(i \in \{L + 1, \ldots, N - M + 1\}\)).
 
@@ -304,8 +304,7 @@ value \(i^\star_2\) that requires a second refitting, maybe an \(i^\star_3\) tha
 requires a third refitting, and so on. We repeat the refitting as few times as
 is required (only if \(k > \tau\)) until we arrive at \(i = L + 1\). Recall that \(L\)
 is the minimum number of observations we have deemed acceptable for making
-predictions (setting \(L=0\) means predictions of all observations should be
-computed).
+predictions (setting \(L=0\) means predicting only based on the prior).
 
 \begin{figure}
 \centering
@@ -322,16 +321,14 @@ fitting models, while the time needed to do predictions is negligible in
 comparison. That is, a reduction of the number of refits basically implies a
 proportional reduction in the overall time necessary for CV of Bayesian models.
 
-A mathematical analysis of the Pareto distribution reveals that approximate CV
-via PSIS is very likely to be highly accurate as long as \(k < 0.5\)
-\citep{vehtari2017psis}. In practice, PSIS-LOO-CV turned out to be robust for
-\(k < 0.7\) \citep{vehtari2017loo}. That is, for PSIS-LFO-CV introduced in the
+When diagnostic Pareto-\(k<0.5\) importance sampling estimate has finite variance, and based on the central limit theorem the convergence of the estimate is fast and then approximate CV via PSIS is highly accurate
+\citep{vehtari2017psis}. For \(0.5 \leq k < 1\), generalized central limit theorem holds, but the convergence rate drops quickly when $k$ increases \citep{vehtari2017psis}. In practice, PSIS-LOO-CV has practically useful error rates for
+\(k < 0.7\) \citep{vehtari2017loo}. For PSIS-LFO-CV introduced in the
 present paper, we can expect an appropriate threshold to be somewhere between
 \(0.5 \leq \tau \leq 0.7\). It is unlikely to be as high as \(\tau = 0.7\), as the
-error made in the prediction of a certain observation \(i\) will propagate to the
-predictions of observations \(i-1, i-2, \ldots\) until a refit is performed. That
-is, problematic observations with high \(k\) are likely to have stronger effects
-in LFO-CV than LOO-CV. We will come back to the issue of setting appropriate
+errors are not independent. If there is a large error when leaving out \(i\)th observation, then there is likely to be a large error when leaving out observations \(i, i-1, i-2, \ldots\) until a refit is performed. That
+is, highly influential observations with high \(k\) are likely to have stronger effects
+for total estimate in LFO-CV than LOO-CV. We will come back to the issue of setting appropriate
 thresholds in Section \ref{simulations}.
 
 \hypertarget{approximate_blockMSAP}{%
@@ -350,7 +347,7 @@ to as block-\(M\)-SAP.
 The block-\(M\)-SAP version closely resembles the basic \(M\)-SAP only if values in
 the distant future, \(y_{>B}\), contain little information about the current
 observations being predicted, apart from just increasing precision of the
-estimated parameters. Whether this assumption is justified will depend
+estimated global parameters. Whether this assumption is justified will depend
 on the data and model. That is, if the time-series is non-stationary, distant
 future value will inform overall trends in the data and thus clearly inform
 predictions of the current observations being left-out. As a result,
