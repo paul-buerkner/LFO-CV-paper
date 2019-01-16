@@ -186,7 +186,7 @@ more realistic applications than previously possible.
 
 The structure of the paper is as follows. In Section \ref{m-sap} we introduce
 the idea and various forms of \(M\)-step-ahead predictions and how to approximate
-it using PSIS. In Section \ref{simulations}, we evaluate the accuaracy of the
+it using PSIS. In Section \ref{simulations}, we evaluate the accuracy of the
 approximation using extensive simulations, before we provide two real world case
 studies about the change of level of Lake Huron and the day of the cherry
 blossoms in Japan across the years in Section \ref{case-studies}. We end with a
@@ -314,20 +314,20 @@ computed).
 \begin{figure}
 \centering
 \includegraphics{LFO-CV_files/figure-latex/vis-msap-1.pdf}
-\caption{\label{fig:vis-msap}Visualisation of PSIS approximated one-step-ahead predicitions leaving out all future values. Predicted observations are indicated by \textbf{X}. In the shown example, the model was last refit at the \(i^\star = 5\)th observation.}
+\caption{\label{fig:vis-msap}Visualisation of PSIS approximated one-step-ahead predictions leaving out all future values. Predicted observations are indicated by \textbf{X}. In the shown example, the model was last refit at the \(i^\star = 5\)th observation.}
 \end{figure}
 
 The threshold \(\tau\) is crucial to the accuracy and speed of the proposed
 algorithm. If \(\tau\) is too large, we need fewer refits and thus achieve higher
 speed, but accuracy is likely to suffer. If \(\tau\) is too small, we get high
-accuracy but a lot of refits to that speed will drop noticably. When performing
+accuracy but a lot of refits to that speed will drop noticeably. When performing
 exact CV of Bayesian models, almost all of the computational time is spend
-fitting models, while the time needed to do predictions is negligeble in
+fitting models, while the time needed to do predictions is negligible in
 comparison. That is, a reduction of the number of refits basically implies a
 proportional reduction in the overall time necessary for CV of Bayesian models.
 
 A mathematical analysis of the Pareto distribution reveals that approximate CV
-via PSIS is very likely to be highly accuracte as long as \(k < 0.5\)
+via PSIS is very likely to be highly accurate as long as \(k < 0.5\)
 \citep{vehtari2017psis}. In practice, PSIS-LOO-CV turned out to be robust for
 \(k < 0.7\) \citep{vehtari2017loo}. That is, for PSIS-LFO-CV introduced in the
 present paper, we can expect an appropriate threshold to be somewhere between
@@ -335,7 +335,7 @@ present paper, we can expect an appropriate threshold to be somewhere between
 error made in the prediction of a certain observation \(i\) will propagate to the
 predictions of observations \(i-1, i-2, \ldots\) until a refit is performed. That
 is, problematic observations with high \(k\) are likely to have stronger effects
-in LFO-CV than LOO-CV. We will come back to the issue of setting approriate
+in LFO-CV than LOO-CV. We will come back to the issue of setting appropriate
 thresholds in Section \ref{simulations}.
 
 \hypertarget{approximate_blockMSAP}{%
@@ -358,7 +358,7 @@ estimated parameters. Whether this assumption is justified will depend
 on the data and model. That is, if the time-series is non-stationary, distant
 future value will inform overall trends in the data and thus clearly inform
 predictions of the current observations being left-out. As a result,
-block-LFO-CV is only recommended for stationary time-series and corrsponding
+block-LFO-CV is only recommended for stationary time-series and corresponding
 models.
 
 There are more complexities that arise in block-\(M\)-SAP that we did not have to
@@ -369,7 +369,7 @@ where predictions just depend on the parameters and not on the former values of
 the time-series itself. However, if the model's predictions are \emph{not}
 conditionally independent as is the case, for instance, in autoregressive models
 (see Section \ref{simulations}), the observations of the left-out block have to
-be modeled as missing values in order to retain the integreity of the
+be modeled as missing values in order to retain the integrity of the
 time-series' predictions after the block. A related example from spatial
 statistics, in which the modeling of missing values is required for valid
 inference, can be found in \citet{buerkner:non-factorizable}.
@@ -380,7 +380,7 @@ whose predictions we are approximating, but it also may \emph{not} contain
 observations that are present in the actual model. The latter observations are
 those right after the currently left-out block, which are included in the
 current model, but not in the approximating model as they were part of the block
-at the time the approximating model was (re-)fit. A visualitation of this
+at the time the approximating model was (re-)fit. A visualisation of this
 situation is provided in Figure X. More formally, let \(\overline{J}_i\) be the
 index set of observations that are missing in the approximating model at the
 time of predicting observation \(i\). We find
@@ -406,7 +406,7 @@ before they are stabilized and further processed using PSIS (see Section
 \begin{figure}
 \centering
 \includegraphics{LFO-CV_files/figure-latex/vis-block-msap-1.pdf}
-\caption{\label{fig:vis-block-msap}Visualisation of PSIS approximated one-step-ahead predicitions leaving out a block of \(B = 3\) future values. Predicted observations are indicated by \textbf{X}. Observation in the left out block are indicated by \textbf{B}. In the shown example, the model was last refit at the \(i^\star = 5\)th observation.}
+\caption{\label{fig:vis-block-msap}Visualisation of PSIS approximated one-step-ahead predictions leaving out a block of \(B = 3\) future values. Predicted observations are indicated by \textbf{X}. Observation in the left out block are indicated by \textbf{B}. In the shown example, the model was last refit at the \(i^\star = 5\)th observation.}
 \end{figure}
 
 \hypertarget{simulations}{%
@@ -420,7 +420,7 @@ fitting took on values of \(B = \infty\) (i.e., leaving out the whole future), o
 \(B = 10\) (i.e.~leaving out only a block of 10 observations).
 The threshold \(\tau\) of the Pareto \(k\) estimates was varied between
 \(k = 0.5\) to \(k = 0.7\) in steps of \(0.1\). In addition, we evaluated six
-different data generating models with linear and/or quadatric terms and/or
+different data generating models with linear and/or quadratic terms and/or
 autoregressive terms of order 2 (see Table X for an overview). These models are
 also illustrated graphically in Figure \ref{fig:simmodels}. In all conditions,
 the time-series consistent of \(N = 200\) observations and the minimal number
@@ -539,8 +539,8 @@ this case, PSIS-LFO-CV provides an closed to unbiased approximation of the
 corresponding exact LFO-CV for all investigated conditions, that is regardless
 of the threshold \(\tau\) or the data generating model. The number of required
 refits was not only much smaller than when leaving out all future values, but
-practically approched zero for most conditions. Notably, PSIS-LOO-CV was
-similarily accurate than PSIS-LFO-CV as indicated by the strongly overlapping
+practically approached zero for most conditions. Notably, PSIS-LOO-CV was
+similarly accurate than PSIS-LFO-CV as indicated by the strongly overlapping
 histograms in Figure \ref{fig:block1sap}. This is plausible given that LOO-CV
 and LFO-CV of block-1-SAP only differ in whether they include the relatively few
 observations in the block when fitting the approximating model.
@@ -556,7 +556,7 @@ values (see Figure \ref{fig:block4sap}) were overall similar to the
 corresponding 1-SAP simulations. In particular, PSIS-LFO-CV turned out to be
 close to unbiased in the approximation of exact LFO-CV. However, the accuracy of
 PSIS-LFO-CV for block-4-SAP turned out to be highly variable when applied to
-autogressive models (see the last three rows in Figure \ref{fig:block4sap}),
+autoregressive models (see the last three rows in Figure \ref{fig:block4sap}),
 something that is also visible in block-1-SAP although to a smaller degree. This
 seems to be a counter-intuitive result given that predictions should be more
 certain in the block version as more observations are available to inform the
@@ -564,7 +564,7 @@ model. However, it can be explained as follows. In autoregressive models,
 predictions of future observations directly depend on past observations, that is
 predictions are not conditionally independent. This becomes a problem when
 dealing with observations that are missing in the approximating model right
-after the block of left out observations, since the directly preceeding
+after the block of left out observations, since the directly preceding
 observations are part of the block and are thus have to be treated as missing
 values (for details see Section \ref{approximate_blockMSAP}). This implies a
 disproportionally high variability in the predictions of observations right
@@ -635,7 +635,7 @@ also the same in \(4\)-SAP as in \(1\)-SAP.
 It is not entirely clear how stationary the time-series is as it may have a
 slight negative trend across time. However, the AR(4) model we are using assumes
 stationarity and it is appropriate to also use block-LFO-CV for this example, at
-least for illustrationary purposes. We choose to leave out a block of \(B = 10\)
+least for illustration. We choose to leave out a block of \(B = 10\)
 future values as the dependency of an AR(4) model will not reach that far into
 the future. That is, we will include all observations after this block when
 re-fitting the model.
@@ -657,7 +657,7 @@ which are again similar but not quite a close as in the 1-SAP case.
 Since AR-models fall in the class of conditionally dependent models, predicting
 observations right after the left-out block may be quite difficult as shown
 in Section \ref{simulations}. However, for the present data set, the
-PSIS apprixmations of block-LFO-CV seem to have worked out just fine.
+PSIS approximations of block-LFO-CV seem to have worked out just fine.
 
 \begin{figure}
 \centering
@@ -680,7 +680,7 @@ blossom using a thin-plate regression spline \citep{wood2003} with a high number
 of basis function to provide flexible non-linear smoothing of the time-series. A
 visualisation of both the data and the fitted model in provided in Figure
 \ref{fig:cherry-blossom}. While the time-series appears rather stable across
-earlier centuries, with substantial variation across consequtive years, there
+earlier centuries, with substantial variation across consecutive years, there
 are some clearly visible trends in the data. In particular in more recent years,
 the cherry blossom tended to happen much earlier than before, presumably as a
 result of climate change \citep{aono2008, aono2010}.
@@ -691,7 +691,7 @@ for reasonable predictions of future values, we will require at least \(L = 100\
 historical observations (100 years) to make predictions. Further, we set a
 threshold of \(\tau =\) 0.6 for the Pareto \(k\) value at which define that
 refitting becomes necessary. As the time series is not stationary, in particular
-towards the end, we do not investigate the models perfomence in terms of
+towards the end, we do not investigate the models performance in terms of
 block-LFO-CV. Our fully reproducible analysis of this case study can be found at
 (add link).
 
@@ -735,16 +735,16 @@ recent future values (block-M-SAP).
 
 For a set of common time-series models, we established via simulations that
 PSIS-LFO-CV is a close to unbiased approximation of exact LFO-CV if we choose
-the threshold \(\tau\) of the Pareto-k-estimates to be not larger than \(\tau = 0.6\). As the number of required model refits, and thus the computiational time,
+the threshold \(\tau\) of the Pareto-k-estimates to be not larger than \(\tau = 0.6\). As the number of required model refits, and thus the computational time,
 increases with decreasing \(\tau\), we currently see \(\tau = 0.6\) as a good
-default when perfoming PSIS-LFO-CV. This is noticably smaller than the
+default when performing PSIS-LFO-CV. This is noticeably smaller than the
 recommended threshold for PSIS-LOO-CV of \(\tau = 0.7\), because, in PSIS-LFO-CV,
 observations with high Pareto-k-estimates also influence the approximation of
-directly preceeding observations, thus having a stronger influence on the
-overall accuarcy than in PSIS-LOO-CV.
+directly preceding observations, thus having a stronger influence on the
+overall accuracy than in PSIS-LOO-CV.
 
 Among other things, our simulations indicated that the accuracy of PSIS
-approximated block-M-SAP is highly variabiable for conditionally dependent
+approximated block-M-SAP is highly variable for conditionally dependent
 models such as autoregressive models (see Section \ref{sim_results} for
 details). Together with the fact that block-M-SAP is only theoretically
 reasonable for stationary time series, as the future will always be informative
