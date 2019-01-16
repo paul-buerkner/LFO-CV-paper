@@ -462,8 +462,8 @@ increased substantially with decreasing \(\tau\) (see Table
 bias in PSIS-LFO-CV, but also reduced the number of required refits by roughly
 \(30\%\). Another \(30\%\) reduction in the number of refits was achieved by
 using \(\tau = 0.7\) but at the cost of disproportionally increasing the
-positive bias in PSIS-LFO-CV. Further, PSIS-LOO-CV turned out to be a bad
-measure of 1-SAP performance when leaving out all future values for all
+positive bias in PSIS-LFO-CV. As predicted by theory, LOO-CV is a biased
+estimate of 1-SAP performance when leaving out all future values for all
 non-constant models in particular those with a trend in the time-series (see
 light-blue histograms in Figure \ref{fig:1sap}).
 
@@ -527,14 +527,10 @@ and LOO-CV incomparable.
 \end{figure}
 
 Results of the block-1-SAP simulations leaving out a block of \(B = 10\) future
-values are visualized in Figure \ref{fig:block1sap}. It can be seen that, in
-this case, PSIS-LFO-CV provides an closed to unbiased approximation of the
-corresponding exact LFO-CV for all investigated conditions, that is regardless
+values are shown in Figure \ref{fig:block1sap}. PSIS-LFO-CV provides almost unbiased estimate of the corresponding exact LFO-CV for all investigated conditions, regardless
 of the threshold \(\tau\) or the data generating model. The number of required
 refits was not only much smaller than when leaving out all future values, but
-practically approached zero for most conditions. Notably, PSIS-LOO-CV was
-similarly accurate than PSIS-LFO-CV as indicated by the strongly overlapping
-histograms in Figure \ref{fig:block1sap}. This is plausible given that LOO-CV
+practically approached zero for most conditions. PSIS-LOO-CV has also small bias, but higher variance than PSIS-LFO-CV. This is plausible given that LOO-CV
 and LFO-CV of block-1-SAP only differ in whether they include the relatively few
 observations in the block when fitting the approximating model.
 
@@ -545,10 +541,9 @@ observations in the block when fitting the approximating model.
 \end{figure}
 
 Results of the block-4-SAP simulations leaving out a block of \(B = 10\) future
-values (see Figure \ref{fig:block4sap}) were overall similar to the
-corresponding 1-SAP simulations. In particular, PSIS-LFO-CV turned out to be
-close to unbiased in the approximation of exact LFO-CV. However, the accuracy of
-PSIS-LFO-CV for block-4-SAP turned out to be highly variable when applied to
+values (see Figure \ref{fig:block4sap}) are overall similar to the
+corresponding 1-SAP simulations. In particular, PSIS-LFO-CV has small bias compared to the  exact LFO-CV. However, the accuracy of
+PSIS-LFO-CV for block-4-SAP is highly variable when applied to
 autoregressive models (see the last three rows in Figure \ref{fig:block4sap}),
 something that is also visible in block-1-SAP although to a smaller degree. This
 seems to be a counter-intuitive result given that predictions should be more
@@ -581,7 +576,7 @@ performance, we will fit a model for 98 annual measurements of the water level
 (in feet) of \href{https://en.wikipedia.org/wiki/Lake_Huron}{Lake Huron} from the
 years 1875--1972. This data set is found in the \emph{datasets} R package, which is
 installed automatically with R \citep{R2018}. The time-series shows rather strong
-autocorrelation of the well as some trend towards lower levels for later points
+autocorrelation of the level as some trend towards lower levels for later points
 in time. We fit an AR(4) model and display the model implied predictions along
 with the observed values in Figure \ref{fig:lake-huron}.
 
@@ -602,16 +597,16 @@ found at (add link).
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP where we
 leave out all future values. We compute
-\({\rm ELPD}_{\rm exact} =\) -93.38 and
-\({\rm ELPD}_{\rm approx} =\) -91.73,
+\({\rm ELPD}_{\rm exact} =\) -93.4 and
+\({\rm ELPD}_{\rm approx} =\) -91.7,
 which are highly similar. Plotting the Pareto \(k\) estimates reveals that the
 model had to be refit 4 times, out of a total of \(N - L =\)
 78 predicted observations (see Figure \ref{fig:pareto-k-lh}). On average,
 this means one refit every 19.5 observations, which
 implies a drastic speed increase as compared to exact LFO-CV.
 Performing LFO-CV of 4-SAP leaving out all future values, we compute
-\({\rm ELPD}_{\rm exact} =\) -538.68 and
-\({\rm ELPD}_{\rm approx} =\) -539.58,
+\({\rm ELPD}_{\rm exact} =\) -538.7 and
+\({\rm ELPD}_{\rm approx} =\) -539.6,
 which are again highly similar. Although did not see this pattern in this
 example, in general for increasing \(M\), the approximation tends to become less
 accurate in absolute ELPD units, as the ELPD increment of each observation will
@@ -634,8 +629,8 @@ the future. That is, we will include all observations after this block when
 re-fitting the model.
 
 Approximate LFO-CV of block-1-SAP reveals
-\({\rm ELPD}_{\rm exact} =\) -88.55 and
-\({\rm ELPD}_{\rm approx} =\) -87.99,
+\({\rm ELPD}_{\rm exact} =\) -88.6 and
+\({\rm ELPD}_{\rm approx} =\) -88.0,
 which are highly similar. Plotting the Pareto \(k\) estimates reveals that the
 model had to be refit 2 times, out of a total of \(N - L =\)
 78 predicted observations (see Figure \ref{fig:pareto-k-lh-block}). On average,
@@ -644,8 +639,8 @@ again implies a drastic speed increase as compared to exact LFO-CV. What is more
 we needed even fewer refits than in non-block LFO-CV, an observation we already
 made in our simulation in Section \ref{simulations}.
 Performing LFO-CV of block-4-SAP, we compute
-\({\rm ELPD}_{\rm exact} =\) -484.25 and
-\({\rm ELPD}_{\rm approx} =\) -488.81,
+\({\rm ELPD}_{\rm exact} =\) -484.3 and
+\({\rm ELPD}_{\rm approx} =\) -488.8,
 which are again similar but not quite a close as in the 1-SAP case.
 Since AR-models fall in the class of conditionally dependent models, predicting
 observations right after the left-out block may be quite difficult as shown
@@ -696,11 +691,11 @@ block-LFO-CV. Our fully reproducible analysis of this case study can be found at
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP where we leave
 out all future values. We compute \({\rm ELPD}_{\rm exact} =\)
--2349.48 and \({\rm ELPD}_{\rm approx} =\)
--2346.39, which are highly similar. Plotting the
+-2349.5 and \({\rm ELPD}_{\rm approx} =\)
+-2346.4, which are highly similar. Plotting the
 Pareto \(k\) estimates reveals that the model had to be refit 39 times,
 out of a total of \(N - L =\) 727 predicted observations (see Figure
-\ref{fig:pareto-k-lh}). On average, this means one refit every 18.64 observations, which implies a drastic speed increase as compared
+\ref{fig:pareto-k-lh}). On average, this means one refit every 18.6 observations, which implies a drastic speed increase as compared
 to exact LFO-CV. Performing LFO-CV of 4-SAP leaving out all future values, we
 compute \({\rm ELPD}_{\rm exact} =\) -9362.47 and \({\rm ELPD}_{\rm approx} =\) -9353.94, which are again
 similar, but not as close as in the 1-SAP case. This coincides with our simulation
@@ -727,13 +722,12 @@ future we leave out, either all future values (M-SAP) or only a block of more
 recent future values (block-M-SAP).
 
 For a set of common time-series models, we established via simulations that
-PSIS-LFO-CV is a close to unbiased approximation of exact LFO-CV if we choose
+PSIS-LFO-CV is almost unbiased approximation of exact LFO-CV if we choose
 the threshold \(\tau\) of the Pareto-k-estimates to be not larger than \(\tau = 0.6\). As the number of required model refits, and thus the computational time,
 increases with decreasing \(\tau\), we currently see \(\tau = 0.6\) as a good
 default when performing PSIS-LFO-CV. This is noticeably smaller than the
 recommended threshold for PSIS-LOO-CV of \(\tau = 0.7\), because, in PSIS-LFO-CV,
-observations with high Pareto-k-estimates also influence the approximation of
-directly preceding observations, thus having a stronger influence on the
+the errors are dependent as highly influential observations also influence the approximation in the following iterations before refit, thus having a stronger influence on the
 overall accuracy than in PSIS-LOO-CV.
 
 Among other things, our simulations indicated that the accuracy of PSIS
@@ -746,7 +740,7 @@ difficult spot. It appears to be a theoretically reasonable and empirically
 accurate choice only for conditionally independent models fit to stationary
 time-series. If the time-series is not too long and the corresponding model not
 too complex, so that a few more refits are acceptable, it might thus be more
-consistent and save to just using PSIS-LFO-CV of M-SAP not trying to approximate
+consistent and safe to just using PSIS-LFO-CV of M-SAP not trying to approximate
 block-M-SAP at all.
 
 Lastly, we want to briefly note that LFO-CV can also be used to compute marginal
