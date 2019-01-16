@@ -130,20 +130,18 @@
 A time series is a set of observations each one being recorded at a specific
 time \citep{brockwell2002}. In statistics, a wide range of time series models has
 been developed, which find application in nearly all empirical sciences \citep[e.g.,
-see][]{brockwell2002, hamilton1994}. One of the most common goals of a time series
-analysis is to use the observed series to inform predictions for future
-observations. When working with discrete time series -- in which time points form
+see][]{brockwell2002, hamilton1994}. One common goal of a time series
+models is to use the observed series to inform predictions for future. When working with discrete time -- in which time points form
 discrete set -- we will refer to the task of predicting a sequence of \(M\) future
-observations as \(M\)-step-ahead prediction (\(M\)-SAP). Fortunately, once we have
+observations as \(M\)-step-ahead prediction (\(M\)-SAP). Once we have
 fit a Bayesian model and can sample from the posterior predictive distribution,
 it is straightforward to generate predictions as far into the future as we want.
 It is also straightforward to evaluate the \(M\)-SAP performance of a time series
 model by comparing the predictions to the observed sequence of \(M\) future data
 points once they become available.
 
-Unfortunately, we are often in the position of having to use a model to inform
-decisions \emph{before} we can collect the future observations required for assessing
-the predictive performance. If we have many competing models we may also need to
+It is common that we would like to estimate the future predictive performance \emph{before} we can collect the future observations.
+If we have many competing models we may also need to
 first decide which of the models (or which combination of the models) we should
 rely on for predictions \citep{geisser1979, hoeting1999, vehtari2002, ando2010, vehtari2012}. In the absence of new data with which to evaluate predictive
 performance, one general approach for evaluating a model's predictive accuracy
@@ -152,36 +150,32 @@ split into two subsets. Based on the first subset we fit the statistical model
 and then evaluate its predictive accuracy for the second subset. We may do this
 once or many times, each time leaving out another subset.
 
-If there were no time dependence in the data or if the focus is to assess the
+If there were no time ordering in the data or if the focus is to assess the
 non-time-dependent part of the model, we could use methods like leave-one-out
 cross-validation (LOO-CV). For a data set with \(N\) observations, we refit the
 model \(N\) times, each time leaving out one of the \(N\) observations and assessing
-how well the model predicts the left-out observation. LOO-CV is very expensive
-computationally in most realistic settings, but the Pareto smoothed importance
+how well the model predicts the left-out observation. LOO-CV is often computationally
+expensive, but the Pareto smoothed importance
 sampling \citep[PSIS;][]{vehtari2017loo, vehtari2017psis} algorithm allows for
 approximating exact LOO-CV with PSIS-LOO-CV. PSIS-LOO-CV requires only a single
 fit of the full model and comes with diagnostics for assessing the validity of
 the approximation.
 
-With a time series we can do something similar to LOO-CV but, except in a few
-cases, it does not make sense to leave out observations one at a time because
-then we are allowing information from the future to influence predictions of the
+LOO-CV is fine for time series model assessment if we are interested in the performance  of interpolation within time series or the local conditional distribution. If we are interested instead in the performance of extrapolation to new future time points, leave out observations one at a time allows information from the future to influence predictions of the
 past (i.e., times \(t + 1, t+2, \ldots\) should not be used to predict for time
-\(t\)). To apply the idea of cross-validation to the \(M\)-SAP case, instead of
-leave-\emph{one}-out cross-validation we need some form of leave-\emph{future}-out
-cross-validation (LFO-CV). As we will demonstrate in this paper, LFO-CV
+\(t\)). To apply the idea of cross-validation to the \(M\)-SAP case,  we need some form of leave-\emph{future}-out cross-validation (LFO-CV). LFO-CV
 does not refer to one particular prediction task but rather to various possible
-cross-validation approaches that all involve some form of prediction for new
-time series data. Like exact LOO-CV, exact LFO-CV requires refitting the model
-many times to different subsets of the data, which is computationally very
-costly for most nontrivial examples, in particular for Bayesian analyses where
+cross-validation approaches that all involve some form of prediction for future time. Like exact LOO-CV, exact LFO-CV requires refitting the model
+many times to different subsets of the data, which is computationally
+costly for most nontrivial examples, in particular for Bayesian inference where
 refitting the model means estimating a new posterior distribution rather than a
 point estimate.
 
-Although PSIS-LOO-CV provides an efficient approximation to exact LOO-CV, until
-now there has not been an analogous approximation to exact LFO-CV that
-drastically reduces the computational burden while also providing informative
-diagnostics about the quality of the approximation. In this paper we
+% Although PSIS-LOO-CV provides an efficient approximation to exact LOO-CV, until
+% now there has not been an analogous approximation to exact LFO-CV that
+% drastically reduces the computational burden while also providing informative
+% diagnostics about the quality of the approximation.
+In this paper, we extend the ideas from PSIS-LOO-CV and 
 present PSIS-LFO-CV, an algorithm that typically only requires refitting the
 time-series model a small number times and will make LFO-CV tractable for many
 more realistic applications than previously possible.
