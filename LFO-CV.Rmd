@@ -203,18 +203,75 @@ the predictive density $p(y_{i<M} \,|\, y_{<i})$ a model is fit to
 only the first $i-1$ data points, and we will need to do this for every value of
 $i$ under consideration (all $i \in \{L + 1, \ldots, N - M + 1\}$).
 
-To reduce the number of models that need to be fit for the purpose of obtaining
-each of the densities $p(y_{i<M} \,|\, y_{<i})$, we propose the following
-algorithm. Starting with $i = N - M + 1$, we approximate each 
-$p(y_{i<M} \,|\, y_{<i})$ using Pareto smoothed importance sampling [PSIS;
-@vehtari2017loo; @vehtari2017psis]:
+Below, we will present a new algorithm to reduce the number of models that need
+to be fit for the purpose of obtaining each of the densities $p(y_{i<M} \,|\,
+y_{<i})$. This algorithm relies in a central manner on Pareto smoothed
+importance sampling [@vehtari2017loo; @vehtari2017psis], which we will to
+introduce first.
+
+### Pareto smoothed importance sampling {#psis}
+
+In general, importance sampling is a technique to compute expectations with
+respect to some target distribution using an approximating proposal distribution
+that is easier to draw samples from than the actual target. If $p(\theta)$ is
+the target and $g(\theta)$ is the proposal distribution, we can write any
+expectation $\mathbb{E}_p[h(\theta)]$ of some function $h(\theta)$ with
+respect to the target $p$ as
+
+\begin{equation}
+\mathbb{E}_p[h(\theta)] = \int h(\theta) p(\theta) \,d\, \theta 
+ = \int \frac{[h(\theta) p(\theta) / g(\theta)] g(\theta)}
+    {[p(\theta) / g(\theta)] g(\theta)} \,d\, \theta 
+ = \int \frac{h(\theta) r(\theta) g(\theta)}
+    {r(\theta) g(\theta)} \,d\, \theta 
+\end{equation}
+
+with importance ratios 
+\begin{equation}
+r(\theta) = \frac{p(\theta)}{g(\theta)}.
+\end{equation}
+
+Accordingly, if $\theta^{(s)}$ are $S$ random draws from $g(\theta)$, we can
+approximate
+
+\begin{equation}
+\mathbb{E}_p[h(\theta)] \approx 
+\frac{\sum_{s=1}^S h(\theta^{(s)}) r(\theta^{(s)})}{\sum_{s=1}^S r(\theta^{(s)})}
+\end{equation}
+
+provided that we can compute the raw importance ratios $r(\theta^{(s)})$ up to
+some multiplicative constant. The main problem with this approach is that
+the raw importance ratios tend to have high or even infinite variance and
+as such, results computed on their basis can be highly unstable. 
+
+In order to stablize those computations, one solution is to regularize the
+largest raw importance ratios using the corresponding quantiles of generalized
+Pareto distribution fitted to the importance ratios. This procedure is called
+Pareto smooth importance sampling [PSIS; @vehtari2017loo; @vehtari2017psis] and
+turned out to be superior to other commonly used reqularization technigues
+[@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
+the goodness of the importance sampling approximation. The shape parameter $k$
+of the generalized Pareto distribution provides information about the number of
+existing moments with the variance existing for $k < 0.5$ and the mean existing
+for $k < 1$. That is, if $k < 0.5$, the PSIS weights are highly stable and the
+approximation can generally be trusted [@vehtari2017psis]. In practice, PSIS 
+turned out to be relatively robust for $k < 0.7$ [@vehtari2017loo; 
+@vehtari2017psis]. As such, the default threshold is set to $0.7$
+when performing PSIS LOO-CV [@vehtari2017loo].
+
+
+### PSIS applied to $M$-step-ahead predictions
+
+We now come back to our task of performing $M$-step-ahead predictions in
+time-series models. Starting with $i = N - M + 1$, we approximate each
+$p(y_{i<M} \,|\, y_{<i})$ via
 
 \begin{equation}
  p(y_{i<M} \,|\, y_{<i}) \approx
    \frac{ \sum_{s=1}^S w_i^{(s)}\, p(y_{i<M} \,|\, \theta^{(s)})}{ \sum_{s=1}^S w_i^{(s)}},
 \end{equation}
 
-where $w_i^{(s)}$ are importance weights and $\theta^{(s)}$ are draws from the
+where $w_i^{(s)}$ are the PSIS weights and $\theta^{(s)}$ are draws from the
 posterior distribution based on _all_ observations. To obtain $w_i^{(s)}$, we
 first compute the raw importance ratios
 
@@ -222,13 +279,13 @@ first compute the raw importance ratios
 r_i^{(s)} \propto \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
 \end{equation}
 
-and then stabilize them using PSIS as described in @vehtari2017psis. The index
-set $J_i$ contains all the indices of observations which are part of the actually
-fitted model but not of the model whose predictive performance we are trying to
-approximate. That is, for the starting value $i = N - M + 1$, we have 
-$J_i = \{i, \ldots, N\}$. This approach to computing importance ratios is a 
-generalization of the approach used in PSIS-LOO-CV, where only a single observation
-is left out at a time and thus $J_i = i$ for all $i$.
+and then stabilize them using PSIS as described above. The index set $J_i$
+contains all the indices of observations which are part of the actually fitted
+model but not of the model whose predictive performance we are trying to
+approximate. That is, for the starting value $i = N - M + 1$, we have $J_i =
+\{i, \ldots, N\}$. This approach to computing importance ratios is a
+generalization of the approach used in PSIS-LOO-CV, where only a single
+observation is left out at a time and thus $J_i = i$ for all $i$.
 
 Starting from $i = N - M + 1$, we gradually *decrease* $i$ by $1$ (i.e., we move
 backwards in time) and repeat the process. At some observation $i$, the
