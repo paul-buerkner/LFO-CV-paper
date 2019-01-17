@@ -58,6 +58,12 @@ rstan::rstan_options(auto_write = TRUE)
 options(mc.cores = max(1, parallel::detectCores() - 1))
 ```
 
+```{r functions}
+fmt <- function(x, digits = 1, ...) {
+  format(x, digits = digits, nsmall = digits, ...)
+}
+```
+
 # Introduction
 
 A time series is a set of observations each one being recorded at a specific
@@ -480,7 +486,7 @@ All simulations were done in R [@R2018] using the brms package [@brms1;
 [@carpenter2017] for the modeling fitting, the loo package [@vehtari2017loo] for
 the PSIS computation, and several tidyverse packages [@tidyverse] for data
 processing. The full code used in the simulations as well as all results are
-available on (add link).
+available on Github (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ## Results {#sim_results}
 
@@ -702,8 +708,8 @@ fit_lh <- brm(
   data = df, 
   autocor = cor_ar(~time, p = 4), 
   prior = prior(normal(0, 0.5), class = "ar"),
-  control = list(adapt_delta = 0.95), chains = 2,
-  file = "models/fit_lh"
+  control = list(adapt_delta = 0.99), chains = 2,
+   seed = 583829, file = "models/fit_lh"
 )
 ```
 
@@ -734,7 +740,7 @@ predictions of future values, we will require at least $L = 20$ historical
 observations (20 years) to make predictions. Further, we set a threshold of
 $\tau =$ `r k_thres` for the Pareto $k$ value at which define that refitting 
 becomes necessary. Our fully reproducible analysis of this case study can be 
-found at (add link).
+found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ```{r}
 M <- 1
@@ -769,22 +775,25 @@ sum_approx_lfo_4sap_lh <- summarize_elpds(approx_lfo_4sap_lh)[1]
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP where we
 leave out all future values. We compute 
-${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_1sap_lh, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_1sap_lh, 1)`, 
-which are highly similar. Plotting the Pareto $k$ estimates reveals that the
+${\rm ELPD}_{\rm exact} =$ `r fmt(sum_exact_lfo_1sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(sum_approx_lfo_1sap_lh, 1)`, 
+which are highly similar. The LOO-CV result
+${\rm ELPD}_{\rm loo} =$ `r fmt(loo_lh$estimates[1, 1], 1)` tends to slighly
+overestimate the predictive performance, which coincides with our simulation
+results of stationary autoregessive models (see fourth row of Figure 
+\@ref(fig:1sap)). Plotting the Pareto $k$ estimates reveals that the
 model had to be refit `r nrefits` times, out of a total of $N - L =$ 
 `r N - L` predicted observations (see Figure \ref{fig:pareto-k-lh}). On average, 
-this means one refit every `r round((N - L) / nrefits, 1)` observations, which
+this means one refit every `r fmt((N - L) / nrefits, 1)` observations, which
 implies a drastic speed increase as compared to exact LFO-CV.
 Performing LFO-CV of 4-SAP leaving out all future values, we compute
-${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_4sap_lh, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_4sap_lh, 1)`, 
-which are again highly similar. Although did not see this pattern in this
-example, in general for increasing $M$, the approximation tends to become less
-accurate in absolute ELPD units, as the ELPD increment of each observation will
-be based on more and more observations. Since, for constant threshold $\tau$,
-the importance weights are the same independent of $M$, Pareto $k$ estimates are
-also the same in $4$-SAP as in $1$-SAP.
+${\rm ELPD}_{\rm exact} =$ `r fmt(sum_exact_lfo_4sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(sum_approx_lfo_4sap_lh, 1)`, 
+which are again highly similar. In general for increasing $M$, the approximation
+tends to become less accurate in absolute ELPD units, as the ELPD increment of
+each observation will be based on more and more observations. Since, for
+constant threshold $\tau$, the importance weights are the same independent of
+$M$, Pareto $k$ estimates are also the same in $4$-SAP as in $1$-SAP.
 
 ```{r pareto-k-lh, fig.height=2.5, fig.cap="Pareto $k$ estimates for PSIS-LFO-CV of the Lake Huron model leaving out all future values. The dotted red line indicates the threshold at which the refitting was necessary."}
 ks <- attributes(approx_lfo_1sap_lh)$ks
@@ -834,18 +843,18 @@ the future. That is, we will include all observations after this block when
 re-fitting the model.
 
 Approximate LFO-CV of block-1-SAP reveals 
-${\rm ELPD}_{\rm exact} =$ `r round(elpd_exact_lfo_block1sap_lh, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(elpd_approx_lfo_block1sap_lh, 1)`, 
+${\rm ELPD}_{\rm exact} =$ `r fmt(elpd_exact_lfo_block1sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(elpd_approx_lfo_block1sap_lh, 1)`, 
 which are highly similar. Plotting the Pareto $k$ estimates reveals that the
 model had to be refit `r nrefits` times, out of a total of $N - L =$ 
 `r N - L` predicted observations (see Figure \ref{fig:pareto-k-lh-block}). On average, 
-this means one refit every `r round((N - L) / nrefits, 1)` observations, which
+this means one refit every `r fmt((N - L) / nrefits, 1)` observations, which
 again implies a drastic speed increase as compared to exact LFO-CV. What is more,
 we needed even fewer refits than in non-block LFO-CV, an observation we already
 made in our simulation in Section \ref{simulations}.
 Performing LFO-CV of block-4-SAP, we compute
-${\rm ELPD}_{\rm exact} =$ `r round(elpd_exact_lfo_block4sap_lh, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r round(elpd_approx_lfo_block4sap_lh, 1)`, 
+${\rm ELPD}_{\rm exact} =$ `r fmt(elpd_exact_lfo_block4sap_lh, 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(elpd_approx_lfo_block4sap_lh, 1)`, 
 which are again similar but not quite a close as in the 1-SAP case.
 Since AR-models fall in the class of conditionally dependent models, predicting
 observations right after the left-out block may be quite difficult as shown
@@ -891,8 +900,8 @@ historical observations (100 years) to make predictions. Further, we set a
 threshold of $\tau =$ `r k_thres` for the Pareto $k$ value at which define that
 refitting becomes necessary. As the time series is not stationary, in particular
 towards the end, we do not investigate the models performance in terms of
-block-LFO-CV. Our fully reproducible analysis of this case study can be found at
-(add link).
+block-LFO-CV. Our fully reproducible analysis of this case study can be found on
+GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ```{r fit_cb}
 fit_cb <- brm(
@@ -926,6 +935,8 @@ nrefits <- length(refits)
 
 sum_exact_lfo_1sap_cb <- summarize_elpds(exact_lfo_1sap_cb)[1]
 sum_approx_lfo_1sap_cb <- summarize_elpds(approx_lfo_1sap_cb)[1]
+
+loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ])
 ```
 
 ```{r}
@@ -945,15 +956,17 @@ sum_approx_lfo_4sap_cb <- summarize_elpds(approx_lfo_4sap_cb)[1]
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP where we leave
 out all future values. We compute ${\rm ELPD}_{\rm exact} =$ 
-`r round(sum_exact_lfo_1sap_cb, 1)` and ${\rm ELPD}_{\rm approx} =$ 
-`r round(sum_approx_lfo_1sap_cb, 1)`, which are highly similar. Plotting the 
+`r fmt(sum_exact_lfo_1sap_cb, 1)` and ${\rm ELPD}_{\rm approx} =$ 
+`r fmt(sum_approx_lfo_1sap_cb, 1)`, which are similar. In comparison,
+${\rm ELPD}_{\rm exact} =$ `r fmt(loo_cb$estimates[1, 1], 2)` clearly 
+overestimates the predictive performance. Plotting the 
 Pareto $k$ estimates reveals that the model had to be refit `r nrefits` times,
 out of a total of $N - L =$ `r N - L` predicted observations (see Figure
-\ref{fig:pareto-k-lh}). On average, this means one refit every `r round((N - L)
-/ nrefits, 1)` observations, which implies a drastic speed increase as compared
-to exact LFO-CV. Performing LFO-CV of 4-SAP leaving out all future values, we
-compute ${\rm ELPD}_{\rm exact} =$ `r round(sum_exact_lfo_4sap_cb, 1)` and ${\rm
-ELPD}_{\rm approx} =$ `r round(sum_approx_lfo_4sap_cb, 1)`, which are again
+\ref{fig:pareto-k-lh}). On average, this means one refit every 
+`r fmt((N - L) / nrefits, 1)` observations, which implies a drastic speed 
+increase as compared to exact LFO-CV. Performing LFO-CV of 4-SAP leaving out all 
+future values, we compute ${\rm ELPD}_{\rm exact} =$ `r fmt(sum_exact_lfo_4sap_cb, 1)` 
+and ${\rm ELPD}_{\rm approx} =$ `r fmt(sum_approx_lfo_4sap_cb, 1)`, which are again
 similar, but not as close as in the 1-SAP case. This coincides with our simulation
 results which indicated an increasing variance of PSIS-LFO-CV for increasing $M$.
 Since, for constant threshold
@@ -1009,7 +1022,7 @@ log marginal likelihood as
 \end{equation}
 
 This is nothing else than the ELPD of 1-SAP if we set $L = 0$, that is if we
-choose to predict **all** observations using their respective past (the very
+choose to predict *all* observations using their respective past (the very
 first observation is only predicted from the prior). As such, marginal
 likelihoods may be approximated using PSIS-LFO-CV. Although this approach is
 unlikely to be more efficient than methods specialized to compute marginal

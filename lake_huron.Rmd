@@ -56,8 +56,8 @@ fit_lh <- brm(
   data = df, 
   autocor = cor_ar(~time, p = 4), 
   prior = prior(normal(0, 0.5), class = "ar"),
-  control = list(adapt_delta = 0.95), chains = 2,
-  file = "models/fit_lh", seed = 1234
+  control = list(adapt_delta = 0.99), chains = 2,
+  seed = 583829, file = "models/fit_lh"
 )
 summary(fit_lh)
 ```
