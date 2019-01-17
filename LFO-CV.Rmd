@@ -304,7 +304,9 @@ value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We repeat the refitting as few times as
 is required (only if $k > \tau$) until we arrive at $i = L + 1$. Recall that $L$
 is the minimum number of observations we have deemed acceptable for making
-predictions (setting $L=0$ means predicting only based on the prior).
+predictions (setting $L=0$ means predicting only based on the prior). A
+detailed description of the algorithm in the form of pseudo code is provided 
+in Appendix A.
 
 ```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out all future values. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
 status_levels <- c("included", "left out", "left out (PSIS)")
@@ -1088,5 +1090,51 @@ be a noteworthy options if, for some reason, other methods fail.
 
 \newpage
 
-<div id="refs"></div>
+## Appendix {-}
 
+### Appendix A: Pseudo code of PSIS LFO-CV {-}
+
+The R flavored pseudo code shown below provides a description of the proposed
+PSIS LFO-CV algorithm when leaving out all future values. The actual R code can
+be found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
+
+```{r, tidy=FALSE, eval=FALSE, echo = TRUE}
+PSIS_LFO_CV = function(model, data, M, L, tau) {
+  # Arguments:
+  #   model: the fitted time-series model based on the complete data
+  #   data: the complete data set
+  #   M: number of steps to be predicted into the future
+  #   L: minimal number of observations necessary to make predictions
+  #   tau: threshold of the Pareto-k-values
+  # Returns:
+  #   PSIS approximated ELPD value when leaving out all future values
+  N = number_of_rows(data)
+  S = number_of_draws(model)
+  LL_matrix = matrix(nrow = S, ncol = N)
+  out = vector(length = N)
+  model_refit = model
+  i_star = N
+  for (i in (N - M + 1):(L + 1)) {
+    LL = log_likelihood(model_refit, data = data[1:(i + M - 1), ])
+    LL_matrix[, i] = LL[, i]
+    PSIS_object = PSIS(-sum_per_row(LL_matrix[, i:i_star]))
+    k = pareto_k_values(PSIS_object)
+    if (k > tau) {
+      # refitting the model is necessary
+      i_star = i - 1
+      model_refit = update(model_refit, data = data[-(i:N), ])
+      # perform exact LFO for the ith observation
+      LL = log_likelihood(model_refit, data = data[1:(i + M - 1), ])
+      loglik[, i] = LL[, i]
+      out[i] = log_mean_exp(sum_per_row(LL[, i:(i + M - 1)]))
+    } else {
+      # PSIS approximation is possible
+      LW = log_weights(PSIS_object)
+      out[i] = log_sum_exp(LW + sum_per_row(LL[, i:(i + M - 1)]))
+    }
+  }
+  sum(out)
+}
+```
+
+\newpage
