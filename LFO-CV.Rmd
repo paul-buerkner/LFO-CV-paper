@@ -248,18 +248,23 @@ as such, results computed on their basis can be highly unstable.
 
 In order to stablize those computations, one solution is to regularize the
 largest raw importance ratios using the corresponding quantiles of generalized
-Pareto distribution fitted to the importance ratios. This procedure is called
+Pareto distribution fitted to the largest raw importance ratios. This procedure is called
 Pareto smooth importance sampling [PSIS; @vehtari2017loo; @vehtari2017psis] and
-turned out to be superior to other commonly used reqularization technigues
+has been demonstrated to have lower error and faster convergence rate than other
+commonly used reqularization technigues
 [@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
 the goodness of the importance sampling approximation. The shape parameter $k$
 of the generalized Pareto distribution provides information about the number of
-existing moments with the variance existing for $k < 0.5$ and the mean existing
-for $k < 1$. That is, if $k < 0.5$, the PSIS weights are highly stable and the
-approximation can generally be trusted [@vehtari2017psis]. In practice, PSIS 
-turned out to be relatively robust for $k < 0.7$ [@vehtari2017loo; 
-@vehtari2017psis]. As such, the default threshold is set to $0.7$
-when performing PSIS LOO-CV [@vehtari2017loo].
+existing moments of the importance sampling estimate. 
+When $k<0.5$, importance sampling estimate has finite variance, and
+based on the central limit theorem the convergence of the estimate is
+fast and then approximate LOO-CV via PSIS is highly accurate
+[@vehtari2017psis]. For \(0.5 \leq k < 1\), generalized central limit
+theorem holds, but the convergence rate drops quickly when $k$
+increases [@vehtari2017psis].  In practice, PSIS has been shown to be
+relatively robust for $k < 0.7$ [@vehtari2017loo;
+@vehtari2017psis]. As such, the default threshold is set to $0.7$ when
+performing PSIS LOO-CV [@vehtari2017loo].  
 
 
 ### PSIS applied to $M$-step-ahead predictions
@@ -351,14 +356,10 @@ exact CV of Bayesian models, almost all of the computational time is spend
 fitting models, while the time needed to do predictions is negligible in
 comparison. That is, a reduction of the number of refits basically implies a
 proportional reduction in the overall time necessary for CV of Bayesian models.
-
-When diagnostic Pareto-$k<0.5$ importance sampling estimate has finite variance, and based on the central limit theorem the convergence of the estimate is fast and then approximate CV via PSIS is highly accurate
-[@vehtari2017psis]. For \(0.5 \leq k < 1\), generalized central limit theorem holds, but the convergence rate drops quickly when $k$ increases [@vehtari2017psis].
-In practice, PSIS-LOO-CV  has practically useful error rates for 
-$k < 0.7$ [@vehtari2017loo]. For PSIS-LFO-CV introduced in the
+For PSIS-LFO-CV introduced in the
 present paper, we can expect an appropriate threshold to be somewhere between
-$0.5 \leq \tau \leq 0.7$. It is unlikely to be as high as $\tau = 0.7$, as the
-errors are not independent. If there is a large error when leaving out $i$th
+$0.5 \leq \tau \leq 0.7$. It is unlikely to be as high as $\tau = 0.7$ used for PSIS-LOO-CV, as the
+errors are more dependent in PSIS-LFO-CV. If there is a large error when leaving out $i$th
 observation, , then there is likely to be a large error when leaving out observations
 $i-1, i-2, \ldots$ until a refit is performed. That
 is, highly influential observations with high $k$ are likely to have stronger effects
