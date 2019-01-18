@@ -114,10 +114,12 @@ costly for most nontrivial examples, in particular for Bayesian inference where
 refitting the model means estimating a new posterior distribution rather than a
 point estimate.
 
-% Although PSIS-LOO-CV provides an efficient approximation to exact LOO-CV, until
-% now there has not been an analogous approximation to exact LFO-CV that
-% drastically reduces the computational burden while also providing informative
-% diagnostics about the quality of the approximation.
+<!--
+Although PSIS-LOO-CV provides an efficient approximation to exact LOO-CV, until
+now there has not been an analogous approximation to exact LFO-CV that
+drastically reduces the computational burden while also providing informative
+diagnostics about the quality of the approximation.
+-->
 In this paper, we extend the ideas from PSIS-LOO-CV and 
 present PSIS-LFO-CV, an algorithm that typically only requires refitting the
 time-series model a small number times and will make LFO-CV tractable for many
