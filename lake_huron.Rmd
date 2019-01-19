@@ -56,8 +56,9 @@ fit_lh <- brm(
   data = df, 
   autocor = cor_ar(~time, p = 4), 
   prior = prior(normal(0, 0.5), class = "ar"),
-  control = list(adapt_delta = 0.99), chains = 2,
-  seed = 583829, file = "models/fit_lh"
+  chains = 2, warmup = 1000, iter = 5000,
+  control = list(adapt_delta = 0.99),
+  seed = 5838296, file = "models/fit_lh"
 )
 summary(fit_lh)
 ```
@@ -76,28 +77,33 @@ ggplot(cbind(df, preds), aes(x = year, y = Estimate)) +
   labs(y = "Water Level (ft)", x = "Year")
 ```
 
-## LFO-CV of 1-SAP
+## LFO-CV of 1-SAP {.tabset}
 
-```{r, results="hide", warning=FALSE, message=FALSE}
+```{r}
 L <- 20
 M <- 1
-exact_lfo_lh <- compute_lfo(
+```
+
+### ELPD
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+lh_elpd_1sap_exact <- compute_lfo(
   fit_lh, type = "exact", M = M, L = L, 
-  file = "results/exact_lfo_1sap_lh.rds"
+  file = "results/lh_elpd_1sap_exact.rds"
 )
-approx_lfo_lh <- compute_lfo(
+lh_elpd_1sap_approx <- compute_lfo(
   fit_lh, type = "approx", M = M, L = L, 
-  file = "results/approx_lfo_1sap_lh.rds"
+  file = "results/lh_elpd_1sap_approx.rds"
 )
 ```
 
 ```{r}
-summarize_elpds(exact_lfo_lh)
-summarize_elpds(approx_lfo_lh)
+summarize_elpds(lh_elpd_1sap_exact)
+summarize_elpds(lh_elpd_1sap_approx)
 ```
 
 ```{r}
-ks <- attributes(approx_lfo_lh)$ks
+ks <- attributes(lh_elpd_1sap_approx)$ks
 ids <- N:(L + 1)
 plot_ks(ks, ids)
 ```
@@ -107,73 +113,159 @@ Perform approximate LOO-CV:
 (loo_lh <- loo(fit_lh, newdata = df[-seq_len(L), ]))
 ```
 
-## LFO-CV of 4-SAP
+### RMSE
 
 ```{r, results="hide", warning=FALSE, message=FALSE}
-L <- 20
-M <- 4
-exact_lfo_lh <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, 
-  file = "results/exact_lfo_4sap_lh.rds"
+lh_rmse_1sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, criterion = "rmse",
+  file = "results/lh_rmse_1sap_exact.rds"
 )
-approx_lfo_lh <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, 
-  file = "results/approx_lfo_4sap_lh.rds"
+lh_rmse_1sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, criterion = "rmse",
+  file = "results/lh_rmse_1sap_approx.rds"
 )
 ```
 
 ```{r}
-summarize_elpds(exact_lfo_lh)
-summarize_elpds(approx_lfo_lh)
+summarize_elpds(lh_rmse_1sap_exact)
+summarize_elpds(lh_rmse_1sap_approx)
 ```
 
 
-## LFO-CV of block-1-SAP
+## LFO-CV of 4-SAP {.tabset}
+
+```{r}
+L <- 20
+M <- 4
+```
+
+### ELPD
 
 ```{r, results="hide", warning=FALSE, message=FALSE}
+lh_elpd_4sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, 
+  file = "results/lh_elpd_4sap_exact.rds"
+)
+lh_elpd_4sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, 
+  file = "results/lh_elpd_4sap_approx.rds"
+)
+```
+
+```{r}
+summarize_elpds(lh_elpd_4sap_exact)
+summarize_elpds(lh_elpd_4sap_approx)
+```
+
+### RMSE
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+lh_rmse_4sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, criterion = "rmse",
+  file = "results/lh_rmse_4sap_exact.rds"
+)
+lh_rmse_4sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, criterion = "rmse",
+  file = "results/lh_rmse_4sap_approx.rds"
+)
+```
+
+```{r}
+summarize_elpds(lh_rmse_4sap_exact)
+summarize_elpds(lh_rmse_4sap_approx)
+```
+
+## LFO-CV of block-1-SAP {.tabset}
+
+```{r}
 L <- 20
 M <- 1
 B <- 10
-exact_lfo_lh <- compute_lfo(
+```
+
+### ELPD
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+lh_elpd_block1sap_exact <- compute_lfo(
   fit_lh, type = "exact", M = M, L = L, B = B,
-  file = "results/exact_lfo_block1sap_lh.rds"
+  file = "results/lh_elpd_block1sap_exact.rds"
 )
-approx_lfo_lh <- compute_lfo(
+lh_elpd_block1sap_approx <- compute_lfo(
   fit_lh, type = "approx", M = M, L = L, B = B,
-  file = "results/approx_lfo_block1sap_lh.rds"
+  file = "results/lh_elpd_block1sap_approx.rds"
 )
 ```
 
 ```{r}
-summarize_elpds(exact_lfo_lh)
-summarize_elpds(approx_lfo_lh)
+summarize_elpds(lh_elpd_block1sap_exact)
+summarize_elpds(lh_elpd_block1sap_approx)
 ```
 
 ```{r}
-ks <- attributes(approx_lfo_lh)$ks
+ks <- attributes(lh_elpd_block1sap_approx)$ks
 ids <- N:(L + 1)
 plot_ks(ks, ids)
 ```
 
-
-
-## LFO-CV of block-4-SAP
+### RMSE
 
 ```{r, results="hide", warning=FALSE, message=FALSE}
-L <- 20
-M <- 4
-B <- 10
-exact_lfo_lh <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, B = B,
-  file = "results/exact_lfo_block4sap_lh.rds"
+lh_rmse_block1sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, B = B, criterion = "rmse",
+  file = "results/lh_rmse_block1sap_exact.rds"
 )
-approx_lfo_lh <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, B = B,
-  file = "results/approx_lfo_block4sap_lh.rds"
+lh_rmse_block1sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, B = B, criterion = "rmse",
+  file = "results/lh_rmse_block1sap_approx.rds"
 )
 ```
 
 ```{r}
-summarize_elpds(exact_lfo_lh)
-summarize_elpds(approx_lfo_lh)
+summarize_elpds(lh_rmse_block1sap_exact)
+summarize_elpds(lh_rmse_block1sap_approx)
+```
+
+
+## LFO-CV of block-4-SAP {.tabset}
+
+```{r}
+L <- 20
+M <- 4
+B <- 10
+```
+
+### ELPD
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+lh_elpd_block4sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, B = B,
+  file = "results/lh_elpd_block4sap_exact.rds"
+)
+lh_elpd_block4sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, B = B,
+  file = "results/lh_elpd_block4sap_approx.rds"
+)
+```
+
+```{r}
+summarize_elpds(lh_elpd_block4sap_exact)
+summarize_elpds(lh_elpd_block4sap_approx)
+```
+
+### RMSE
+
+```{r, results="hide", warning=FALSE, message=FALSE}
+lh_rmse_block4sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, B = B, criterion = "rmse",
+  file = "results/lh_rmse_block4sap_exact.rds"
+)
+lh_rmse_block4sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, B = B, criterion = "rmse",
+  file = "results/lh_rmse_block4sap_approx.rds"
+)
+```
+
+```{r}
+summarize_elpds(lh_rmse_block4sap_exact)
+summarize_elpds(lh_rmse_block4sap_approx)
 ```

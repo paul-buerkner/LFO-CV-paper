@@ -29,7 +29,7 @@ scale_unit_interval <- function(x) {
 
 summarize_elpds <- function(elpds) {
   elpds <- na.omit(elpds)
-  c(ELPD = sum(elpds), SE = sqrt(length(elpds) * var(elpds)))
+  c(Estimate = sum(elpds), SE = sqrt(length(elpds) * var(elpds)))
 }
 
 plot_ks <- function(ks, ids, thres = 0.6) {
@@ -51,6 +51,27 @@ seq_pos <- function(from, to, ...) {
   out
 }
 
+rmse <- function(x, y, weights = NULL) {
+  # args:
+  #   x: SN matrix of posterior predictions
+  #   y: N vector of reponse values
+  #   weights: optional S vector of weights
+  x <- as.matrix(x)
+  stopifnot(length(y) == NCOL(x))
+  out <- 0
+  if (is.null(weights)) {
+    for (i in seq_along(y)) {
+      out <- out + sqrt(mean((x[, i] - y[i])^2))
+    }
+  } else {
+    stopifnot(length(weights) == NROW(x))
+    for (i in seq_along(y)) {
+      out <- out + sqrt(sum(weights * (x[, i] - y[i])^2))
+    }
+  }
+  out
+}
+
 # Perform exact leave-future-out cross-validation
 # 
 # @param fit a brmsfit object
@@ -58,9 +79,10 @@ seq_pos <- function(from, to, ...) {
 # @param L minimal number of observations required for fitting the model
 # 
 # @return A vector of pointwise ELPD values
-exact_lfo <- function(fit, M, L, B = NA) {
+exact_lfo <- function(fit, M, L, B = NA, criterion = c("elpd", "rmse")) {
   require(brms)
   stopifnot(is.brmsfit(fit))
+  criterion <- match.arg(criterion)
   df <- model.frame(fit)
   N <- NROW(df)
   if (!length(B) || anyNA(B)) {
@@ -73,6 +95,7 @@ exact_lfo <- function(fit, M, L, B = NA) {
   
   # compute exact LFO likelihoods
   ids <- (N - M + 1):max(L + 1, 2)
+  out <- rep(NA, N)
   loglikm <- matrix(nrow = nsamples(fit), ncol = N)
   for (i in ids) {
     ioos <- 1:(i + M - 1)
@@ -87,14 +110,17 @@ exact_lfo <- function(fit, M, L, B = NA) {
       newdf <- newdf[-ind_rm, , drop = FALSE]
     }
     fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
-    ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
-    loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
+    out[i] <- lfo_criterion(
+      fit_i, data = df[ioos, , drop = FALSE], oos = oos, 
+      criterion = criterion
+    )
   }
   # compute and return elpds per observation
-  apply(loglikm, 2, log_mean_exp)
+  out
 }
 
-approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
+approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6, 
+                       criterion = c("elpd", "rmse")) {
   require(brms)
   require(loo)
   stopifnot(is.brmsfit(fit))
@@ -126,7 +152,6 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
     ioos <- 1:(i + M - 1)
     oos <- i:(i + M - 1)
     ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
-    loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
     loglik[, i] <- ll[, i]
     # observations over which to perform importance sampling
     ilr1 <- i:min(i + B - 1, i_refit)
@@ -162,12 +187,16 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6) {
       # perform exact LFO for the ith observation
       ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
       loglik[, i] <- ll[, i]
-      loglikm[, i] <- rowSums(ll[, oos, drop = FALSE])
-      out[i] <- log_mean_exp(loglikm[, i])
+      out[i] <- lfo_criterion(
+        fit_i, data = df[ioos, , drop = FALSE], 
+        oos = oos, criterion = criterion
+      )
     } else {
       # PSIS approximate LFO is possible
-      lw_i <- weights(psis_part, normalize = TRUE)[, 1]
-      out[i] <- log_sum_exp(lw_i + loglikm[, i])
+      out[i] <- lfo_criterion(
+        fit_i, data = df[ioos, , drop = FALSE], oos = oos,
+        criterion = criterion, psis = psis_part
+      )
     }
   }
   attr(out, "ks") <- ks
@@ -184,6 +213,35 @@ compute_lfo <- function(fit, type = c("exact", "approx"), file = NULL, ...) {
   out <- lfo_fun(fit, ...)
   if (!is.null(file)) {
     saveRDS(out, file)
+  }
+  out
+}
+
+lfo_criterion <- function(fit, data, oos, criterion = c("elpd", "rmse"),
+                          psis = NULL, ...) {
+  stopifnot(is.brmsfit(fit))
+  data <- as.data.frame(data)
+  stopifnot(all(oos %in% seq_len(NROW(data))))
+  criterion <- match.arg(criterion)
+  stopifnot(is.null(psis) || loo:::is.psis(psis))
+  if (criterion == "elpd") {
+    ll <- log_lik(fit, newdata = data, oos = oos, ...)
+    sum_ll <- rowSums(ll[, oos, drop = FALSE])
+    if (is.null(psis)) {
+      out <- log_mean_exp(sum_ll)
+    } else {
+      lw <- weights(psis, normalize = TRUE)[, 1]
+      out <- log_sum_exp(lw + sum_ll)
+    }
+  } else if (criterion == "rmse") {
+    pp <- posterior_predict(fit, newdata = data, oos = oos, ...)
+    y <- brms:::get_y(fit, newdata = data)
+    if (is.null(psis)) {
+      out <- rmse(pp[, oos, drop = FALSE], y[oos])
+    } else {
+      w <- weights(psis, log = FALSE, normalize = TRUE)[, 1]
+      out <- rmse(pp[, oos, drop = FALSE], y[oos], weights = w)
+    }
   }
   out
 }
