@@ -1,6 +1,10 @@
 ---
 title: "Approximate leave-future-out cross-validation for time series models"
-author: "Paul-Christian Bürkner, Jonah Gabry, Aki Vehtari"
+author: "Paul-Christian Bürkner $^1$, Jonah Gabry $^2$, & Aki Vehtari $^3$"
+date: |
+  $^1$ Department of Psychology, University of Münster, Germany \break
+  $^2$ Institute for Social and Economic Research in Policy, Columbia University, USA \break
+  $^3$ Department of Computer Science, Aalto University, Finland
 abstract: |
   One of the common goals of a time series analysis is to use the observed series to inform predictions for future observations. In the absence of any actual new data to predict, cross-validation can be used to estimate a model's future predictive accuracy, for instance, for the purpose of model comparison or selection. As exact cross-validation for Bayesian models is often computationally expensive, approximate cross-validation methods have been developed; most notably methods for leave-one-out cross-validation (LOO-CV).
   Although LOO-CV can be used for time series model assessment, if the actual prediction task is to predict future given the past, LOO-CV provides optimistic estimate as the information from the future observations is available to influence predictions of the past.
@@ -103,16 +107,20 @@ approximating exact LOO-CV with PSIS-LOO-CV. PSIS-LOO-CV requires only a single
 fit of the full model and comes with diagnostics for assessing the validity of
 the approximation.
 
-LOO-CV is fine for time series model assessment if we are interested in the performance  of interpolation within time series or the local conditional distribution. If we are interested instead in the performance of extrapolation to new future time points, leave out observations one at a time allows information from the future to influence predictions of the
-past (i.e., times $t + 1, t+2, \ldots$ should not be used to predict for time
-$t$). To apply the idea of cross-validation to the $M$-SAP case, we need some form
-of leave-*future*-out cross-validation (LFO-CV). LFO-CV
-does not refer to one particular prediction task but rather to various possible
-cross-validation approaches that all involve some form of prediction for future time. Like exact LOO-CV, exact LFO-CV requires refitting the model
-many times to different subsets of the data, which is computationally
-costly for most nontrivial examples, in particular for Bayesian inference where
-refitting the model means estimating a new posterior distribution rather than a
-point estimate.
+LOO-CV is fine for time series model assessment if we are interested in the
+performance of interpolation within the time series or the local conditional
+distribution. However, if we are interested in the performance of extrapolation 
+to new future time points, leaving out only one observation at a time allows
+information from the future to influence predictions of the past (i.e., times 
+$t+1, t+2, \ldots$ should not be used to predict time $t$). To apply the idea
+of cross-validation to the $M$-SAP case, we need some form of leave-*future*-out
+cross-validation (LFO-CV). LFO-CV does not refer to one particular prediction
+task but rather to various possible cross-validation approaches that all involve
+some form of prediction of future time points. Like exact LOO-CV, exact LFO-CV
+requires refitting the model many times to different subsets of the data, which
+is computationally costly for most nontrivial examples, in particular for
+Bayesian inference where refitting the model means estimating a new posterior
+distribution rather than a point estimate.
 
 <!--
 Although PSIS-LOO-CV provides an efficient approximation to exact LOO-CV, until
@@ -120,10 +128,11 @@ now there has not been an analogous approximation to exact LFO-CV that
 drastically reduces the computational burden while also providing informative
 diagnostics about the quality of the approximation.
 -->
-In this paper, we extend the ideas from PSIS-LOO-CV and 
-present PSIS-LFO-CV, an algorithm that typically only requires refitting the
-time-series model a small number times and will make LFO-CV tractable for many
-more realistic applications than previously possible.
+
+In this paper, we extend the ideas from PSIS-LOO-CV and present PSIS-LFO-CV, an
+algorithm that typically only requires refitting the time-series model a small
+number times and will make LFO-CV tractable for many more realistic applications
+than previously possible.
 
 The structure of the paper is as follows. In Section \ref{m-sap} we introduce
 the idea and various forms of $M$-step-ahead predictions and how to approximate
