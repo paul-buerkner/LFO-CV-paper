@@ -45,37 +45,58 @@ cherry_doy <- cherry[!is.na(cherry$doy), ]
 
 ## Model
 
-Fit a spline model:
+Fit a GP model:
 ```{r}
 fit_cb <- brm(
-  formula = bf(doy ~ s(year, k = 40)),
-  data = cherry_doy, chain = 2, seed = 583829, 
-  control = list(adapt_delta = 0.99),
-  file = "models/fit_cb"
+  formula = bf(doy ~ gp(year, k = 20, c = 5/4)), 
+  data = cherry_doy, 
+  chain = 2, warmup = 1000, iter = 5000, inits = 0,
+  control = list(adapt_delta = 0.99, max_treedepth = 15),
+  seed = 583829, file = "models/fit_cb"
 )
 plot(marginal_effects(fit_cb), points = TRUE)
 ```
 
-## LFO-CV with 1-SAP
+```{r}
+# fit_cb2 <- brm(
+#   formula = bf(
+#     doy ~ gp(year, k = 20, c = 5/4),
+#     sigma ~ gp(year, k = 20, c = 5/4)
+#   ), 
+#   data = cherry_doy, 
+#   chain = 2, warmup = 1000, iter = 5000, inits = 0,
+#   control = list(adapt_delta = 0.99, max_treedepth = 15),
+#   seed = 583829, file = "models/fit_cb2"
+# )
+# plot(marginal_effects(fit_cb2), points = TRUE)
+```
 
-Perform exact LFO-CV:
+
+## LFO-CV with 1-SAP {.tabset}
+
 ```{r}
 L <- 100
 M <- 1
-exact_lfo_cb <- compute_lfo(
+```
+
+### ELPD
+
+Perform exact LFO-CV:
+```{r}
+cb_elpd_1sap_exact <- compute_lfo(
   fit_cb, type = "exact", M = M, L = L, 
-  file = "results/exact_lfo_1sap_cb.rds"
+  file = "results/cb_elpd_1sap_exact.rds"
 )
-summarize_elpds(exact_lfo_cb)
+summarize_elpds(cb_elpd_1sap_exact)
 ```
 
 Perform approximate LFO-CV:
 ```{r}
-approx_lfo_cb <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, 
-  file = "results/approx_lfo_1sap_cb.rds"
+cb_elpd_1sap_approx <- compute_lfo(
+  fit_cb, type = "approx", M = M, L = L, k_thres = 0.6,
+  file = "results/cb_elpd_1sap_approx.rds"
 )
-summarize_elpds(approx_lfo_cb)
+summarize_elpds(cb_elpd_1sap_approx)
 ```
 
 Perform approximate LOO-CV:
@@ -83,26 +104,70 @@ Perform approximate LOO-CV:
 (loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ]))
 ```
 
-
-## LFO-CV with 4-SAP
+### RMSE
 
 Perform exact LFO-CV:
 ```{r}
-L <- 100
-M <- 4
-exact_lfo_cb <- compute_lfo(
-  fit_cb, type = "exact", M = M, L = L, 
-  file = "results/exact_lfo_4sap_cb.rds"
+cb_rmse_1sap_exact <- compute_lfo(
+  fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
+  file = "results/cb_rmse_1sap_exact.rds"
 )
-summarize_elpds(exact_lfo_cb) 
+summarize_elpds(cb_rmse_1sap_exact)
 ```
 
 Perform approximate LFO-CV:
 ```{r}
-approx_lfo_cb <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, 
-  file = "results/approx_lfo_4sap_cb.rds"
+cb_rmse_1sap_approx <- compute_lfo(
+  fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
+  file = "results/cb_rmse_1sap_approx.rds"
 )
-summarize_elpds(approx_lfo_cb) 
+summarize_elpds(cb_rmse_1sap_approx)
 ```
 
+
+## LFO-CV with 4-SAP {.tabset}
+
+```{r}
+L <- 100
+M <- 4
+```
+
+### ELPD
+
+Perform exact LFO-CV:
+```{r}
+cb_elpd_4sap_exact <- compute_lfo(
+  fit_cb, type = "exact", M = M, L = L, 
+  file = "results/cb_elpd_4sap_exact.rds"
+)
+summarize_elpds(cb_elpd_4sap_exact) 
+```
+
+Perform approximate LFO-CV:
+```{r}
+cb_elpd_4sap_approx <- compute_lfo(
+  fit_cb, type = "approx", M = M, L = L, k_thres = 0.6,
+  file = "results/cb_elpd_4sap_approx.rds"
+)
+summarize_elpds(cb_elpd_4sap_approx)
+```
+
+### RMSE
+
+Perform exact LFO-CV:
+```{r}
+cb_rmse_4sap_exact <- compute_lfo(
+  fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
+  file = "results/cb_rmse_4sap_exact.rds"
+)
+summarize_elpds(cb_rmse_4sap_exact)
+```
+
+Perform approximate LFO-CV:
+```{r}
+cb_rmse_4sap_approx <- compute_lfo(
+  fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
+  file = "results/cb_rmse_4sap_approx.rds"
+)
+summarize_elpds(cb_rmse_4sap_approx)
+```
