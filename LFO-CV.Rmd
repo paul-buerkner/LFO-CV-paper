@@ -85,7 +85,7 @@ model by comparing the predictions to the observed sequence of $M$ future data
 points once they become available.
 
 It is common that we would like to estimate the future predictive performance
-*before* we can collect the future observations.
+before we can collect the future observations.
 If we have many competing models we may also need to
 first decide which of the models (or which combination of the models) we should
 rely on for predictions [@geisser1979; @hoeting1999; @vehtari2002; @ando2010; 
@@ -216,8 +216,8 @@ $i$ under consideration (all $i \in \{L + 1, \ldots, N - M + 1\}$).
 Below, we will present a new algorithm to reduce the number of models that need
 to be fit for the purpose of obtaining each of the densities $p(y_{i<M} \,|\,
 y_{<i})$. This algorithm relies in a central manner on Pareto smoothed
-importance sampling [@vehtari2017loo; @vehtari2017psis], which we will to
-introduce first.
+importance sampling [@vehtari2017loo; @vehtari2017psis], which we will briefly
+review next.
 
 ### Pareto smoothed importance sampling {#psis}
 
@@ -262,9 +262,10 @@ has been demonstrated to have lower error and faster convergence rate than other
 commonly used reqularization technigues
 [@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
 the goodness of the importance sampling approximation. The shape parameter $k$
-of the generalized Pareto distribution provides information about the number of
-existing moments of the importance sampling estimate. 
-When $k<0.5$, the importance sampling estimate has finite variance, and
+of the generalized Pareto distribution fitted to the largest weights
+provides information about the number of existing moments of the
+weight distribution and the actual importance sampling estimate.
+When $k<0.5$, the weight distribution has finite variance, and
 based on the central limit theorem, the convergence of the estimate is
 fast. As a result, approximate LOO-CV via PSIS is highly accurate
 [@vehtari2017psis]. For $0.5 \leq k < 1$, a generalized central limit
@@ -317,7 +318,7 @@ procedure is shown in Figure \@ref(fig:vis-msap).
 
 In some cases we may only need to refit once and in other cases we will find a
 value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
-requires a third refitting, and so on. We repeat the refitting as few times as
+requires a third refitting, and so on. We repeat the refitting as many times as
 is required (only if $k > \tau$) until we arrive at $i = L + 1$. Recall that $L$
 is the minimum number of observations we have deemed acceptable for making
 predictions (setting $L=0$ means predicting only based on the prior). A
@@ -384,8 +385,8 @@ LFO-CV. In this case, another option is to exclude only the block of future
 values that directly follow the observations to be predicted while retaining all
 of the more distant values. This will usually result in lower Pareto $k$
 estimates and thus less refitting, but crucially alters the underlying
-prediction task, to which we will refer to as block-$M$-SAP. As the range 
-of application of block-$M$-SAP turns out to be rather narrow, we do not 
+prediction task, to which we will refer to as block-$M$-SAP. As the  
+of application of block-$M$-SAP is less common, we do not 
 discuss this approach in the main part of this paper, but refer the
 interested reader to Appendix B.
 
@@ -836,7 +837,7 @@ few observations. Since
 these differences all go in the same direction, they induce a slight bias in
 the overall ELPD estimate. Still, PSIS-LFO-CV clearly performs better than
 PSIS-LOO-CV for which we obtain ${\rm ELPD}_{\rm exact} =$ 
-`r fmt(loo_cb$estimates[1, 1], 2)` and thus an even strong overestimation of the
+`r fmt(loo_cb$estimates[1, 1], 1)` and thus an even strong overestimation of the
 predictive performance. Plotting the Pareto $k$ estimates reveals that the model
 had to be refit `r nrefits` times, out of a total of $N - L =$ `r N - L`
 predicted observations (see Figure \ref{fig:cb-pareto-k}). On average, this
