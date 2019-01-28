@@ -96,6 +96,7 @@ exact_lfo <- function(fit, M, L, B = NA, criterion = c("elpd", "rmse")) {
   # compute exact LFO likelihoods
   ids <- (N - M + 1):max(L + 1, 2)
   out <- rep(NA, N)
+  conv <- vector("list", N)
   loglikm <- matrix(nrow = nsamples(fit), ncol = N)
   for (i in ids) {
     ioos <- 1:(i + M - 1)
@@ -110,12 +111,13 @@ exact_lfo <- function(fit, M, L, B = NA, criterion = c("elpd", "rmse")) {
       newdf <- newdf[-ind_rm, , drop = FALSE]
     }
     fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
+    conv[[i]] <- convergence_summary(fit_i)
     out[i] <- lfo_criterion(
       fit_i, data = df[ioos, , drop = FALSE], oos = oos, 
       criterion = criterion
     )
   }
-  # compute and return elpds per observation
+  attr(out, "conv") <- conv
   out
 }
 
@@ -136,13 +138,14 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
   
   # compute approximate LFO likelihoods
   loglikm <- loglik <- matrix(nrow = nsamples(fit), ncol = N)
-  out <- rep(NA, N)
+  out <- ks <- rep(NA, N)
+  conv <- vector("list", N)
   fit_i <- fit
   # observations to predict
   ids <- (N - M + 1):(L + 1)
   # last observation included in the model fitting
   i_refit <- N
-  refits <- ks <- numeric(0)
+  refits <- numeric(0)
   # no isolated predictions of the last M - 1 observations
   ind_init <- seq_pos(N - M + 2, N)
   if (length(ind_init)) {
@@ -169,7 +172,7 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
     }
     psis_part <- suppressWarnings(psis(logratio))
     k <- pareto_k_values(psis_part)
-    ks <- c(ks, k)
+    ks[i] <- k
     if (k > k_thres) {
       # refit the model based on the first i - 1 observations
       i_refit <- i - 1
@@ -184,6 +187,7 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
         newdf <- newdf[-ind_rm, , drop = FALSE]
       }
       fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
+      conv[[i]] <- convergence_summary(fit_i)
       # perform exact LFO for the ith observation
       ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
       loglik[, i] <- ll[, i]
@@ -201,6 +205,7 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
   }
   attr(out, "ks") <- ks
   attr(out, "refits") <- refits
+  attr(out, "conv") <- conv
   out
 }
 
@@ -244,6 +249,23 @@ lfo_criterion <- function(fit, data, oos, criterion = c("elpd", "rmse"),
     }
   }
   out
+}
+
+convergence_summary <- function(x) {
+  require(dplyr)
+  list(
+    nuts_params = nuts_params(x) %>%
+      spread("Parameter", "Value") %>%
+      group_by(Chain) %>%
+      summarise(
+        n_divergent = sum(divergent__),
+        max_treedepth = max(treedepth__),
+        stepsize = mean(stepsize__),
+        mean_n_leapfrog = mean(n_leapfrog__)
+      ),
+    max_rhat = max(rhat(x)),
+    min_neff_ratio = min(neff_ratio(x))
+  )
 }
 
 fit_model <- function(model, N, ...) {

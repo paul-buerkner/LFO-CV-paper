@@ -103,8 +103,8 @@ summarize_elpds(lh_elpd_1sap_approx)
 ```
 
 ```{r}
-ks <- attributes(lh_elpd_1sap_approx)$ks
-ids <- N:(L + 1)
+ks <- na.omit(attributes(lh_elpd_1sap_approx)$ks)
+ids <- (L + 1):N
 plot_ks(ks, ids)
 ```
 
@@ -202,8 +202,8 @@ summarize_elpds(lh_elpd_block1sap_approx)
 ```
 
 ```{r}
-ks <- attributes(lh_elpd_block1sap_approx)$ks
-ids <- N:(L + 1)
+ks <- na.omit(attributes(lh_elpd_block1sap_approx)$ks)
+ids <- (L + 1):N
 plot_ks(ks, ids)
 ```
 

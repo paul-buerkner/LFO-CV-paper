@@ -50,27 +50,13 @@ Fit a GP model:
 fit_cb <- brm(
   formula = bf(doy ~ gp(year, k = 20, c = 5/4)), 
   data = cherry_doy, 
-  chain = 2, warmup = 1000, iter = 5000, inits = 0,
+  prior = prior(normal(0, 0.1), class = lscale, coef = gpyear),
+  chain = 2, warmup = 4000, iter = 7000, inits = 0,
   control = list(adapt_delta = 0.99, max_treedepth = 15),
-  seed = 583829, file = "models/fit_cb"
+  seed = 5838234, file = "models/fit_cb"
 )
 plot(marginal_effects(fit_cb), points = TRUE)
 ```
-
-```{r}
-# fit_cb2 <- brm(
-#   formula = bf(
-#     doy ~ gp(year, k = 20, c = 5/4),
-#     sigma ~ gp(year, k = 20, c = 5/4)
-#   ), 
-#   data = cherry_doy, 
-#   chain = 2, warmup = 1000, iter = 5000, inits = 0,
-#   control = list(adapt_delta = 0.99, max_treedepth = 15),
-#   seed = 583829, file = "models/fit_cb2"
-# )
-# plot(marginal_effects(fit_cb2), points = TRUE)
-```
-
 
 ## LFO-CV with 1-SAP {.tabset}
 
@@ -104,24 +90,51 @@ Perform approximate LOO-CV:
 (loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ]))
 ```
 
+Analysis of convergence:
+```{r}
+conv_exact <- attributes(cb_elpd_1sap_exact)$conv
+names(conv_exact) <- seq_along(conv_exact)
+predicted <- !sapply(conv_exact, is.null)
+conv_exact <- conv_exact[predicted]
+
+conv_approx <- attributes(cb_elpd_1sap_approx)$conv
+names(conv_approx) <- seq_along(conv_approx)
+conv_approx <- conv_approx[predicted]
+
+conv_1sap <- tibble(
+  elpd_exact = na.omit(cb_elpd_1sap_exact),
+  elpd_approx = na.omit(cb_elpd_1sap_approx)
+) %>%
+  mutate(
+    i = L + 1:n(),
+    elpd_diff = elpd_approx - elpd_exact,
+    elpd_abs_diff = abs(elpd_diff),
+    conv_exact = conv_exact,
+    conv_approx = conv_approx
+  ) %>%
+  arrange(desc(elpd_abs_diff))
+
+conv_1sap
+```
+
 ### RMSE
 
 Perform exact LFO-CV:
 ```{r}
-cb_rmse_1sap_exact <- compute_lfo(
-  fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
-  file = "results/cb_rmse_1sap_exact.rds"
-)
-summarize_elpds(cb_rmse_1sap_exact)
+# cb_rmse_1sap_exact <- compute_lfo(
+#   fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
+#   file = "results/cb_rmse_1sap_exact.rds"
+# )
+# summarize_elpds(cb_rmse_1sap_exact)
 ```
 
 Perform approximate LFO-CV:
 ```{r}
-cb_rmse_1sap_approx <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
-  file = "results/cb_rmse_1sap_approx.rds"
-)
-summarize_elpds(cb_rmse_1sap_approx)
+# cb_rmse_1sap_approx <- compute_lfo(
+#   fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
+#   file = "results/cb_rmse_1sap_approx.rds"
+# )
+# summarize_elpds(cb_rmse_1sap_approx)
 ```
 
 
@@ -152,22 +165,49 @@ cb_elpd_4sap_approx <- compute_lfo(
 summarize_elpds(cb_elpd_4sap_approx)
 ```
 
+Analysis of convergence:
+```{r}
+conv_exact <- attributes(cb_elpd_4sap_exact)$conv
+names(conv_exact) <- seq_along(conv_exact)
+predicted <- !sapply(conv_exact, is.null)
+conv_exact <- conv_exact[predicted]
+
+conv_approx <- attributes(cb_elpd_4sap_approx)$conv
+names(conv_approx) <- seq_along(conv_approx)
+conv_approx <- conv_approx[predicted]
+
+conv_4sap <- tibble(
+  elpd_exact = na.omit(cb_elpd_4sap_exact),
+  elpd_approx = na.omit(cb_elpd_4sap_approx)
+) %>%
+  mutate(
+    i = L + 1:n(),
+    elpd_diff = elpd_approx - elpd_exact,
+    elpd_abs_diff = abs(elpd_diff),
+    conv_exact = conv_exact,
+    conv_approx = conv_approx
+  ) %>%
+  arrange(desc(elpd_abs_diff))
+
+conv_4sap
+```
+
 ### RMSE
 
 Perform exact LFO-CV:
 ```{r}
-cb_rmse_4sap_exact <- compute_lfo(
-  fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
-  file = "results/cb_rmse_4sap_exact.rds"
-)
-summarize_elpds(cb_rmse_4sap_exact)
+# cb_rmse_4sap_exact <- compute_lfo(
+#   fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
+#   file = "results/cb_rmse_4sap_exact.rds"
+# )
+# summarize_elpds(cb_rmse_4sap_exact)
 ```
 
 Perform approximate LFO-CV:
 ```{r}
-cb_rmse_4sap_approx <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
-  file = "results/cb_rmse_4sap_approx.rds"
-)
-summarize_elpds(cb_rmse_4sap_approx)
+# cb_rmse_4sap_approx <- compute_lfo(
+#   fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
+#   file = "results/cb_rmse_4sap_approx.rds"
+# )
+# summarize_elpds(cb_rmse_4sap_approx)
 ```
