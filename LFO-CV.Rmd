@@ -91,13 +91,13 @@ first decide which of the models (or which combination of the models) we should
 rely on for predictions [@geisser1979; @hoeting1999; @vehtari2002; @ando2010; 
 @vehtari2012]. In the absence of new data with which to evaluate predictive
 performance, one general approach for evaluating a model's predictive accuracy
-is cross-validation [@vehtari2002]. When doing cross-validation, the data is
+is cross-validation. When doing cross-validation, the data is
 split into two subsets. Based on the first subset we fit the statistical model
 and then evaluate its predictive accuracy for the second subset. We may do this
 once or many times, each time leaving out another subset.
 
 If there were no time ordering in the data or if the focus is to assess the
-non-time-dependent part of the model, we could use methods like leave-one-out
+non-time-dependent part of the model, we can use leave-one-out
 cross-validation (LOO-CV). For a data set with $N$ observations, we refit the
 model $N$ times, each time leaving out one of the $N$ observations and assessing
 how well the model predicts the left-out observation. LOO-CV is often computationally
@@ -107,18 +107,16 @@ approximating exact LOO-CV with PSIS-LOO-CV. PSIS-LOO-CV requires only a single
 fit of the full model and comes with diagnostics for assessing the validity of
 the approximation.
 
-LOO-CV is fine for time series model assessment if we are interested in the
-performance of interpolation within the time series or the local conditional
-distribution. However, if we are interested in the performance of extrapolation 
-to new future time points, leaving out only one observation at a time allows
+If there is time ordering in the data and we are interested in the predictive
+performance to new future time points, leaving out only one observation at a time allows
 information from the future to influence predictions of the past (i.e., times 
 $t+1, t+2, \ldots$ should not be used to predict time $t$). To apply the idea
-of cross-validation to the $M$-SAP case, we need some form of leave-*future*-out
+of cross-validation to the $M$-SAP case, we can use leave-*future*-out
 cross-validation (LFO-CV). LFO-CV does not refer to one particular prediction
 task but rather to various possible cross-validation approaches that all involve
 some form of prediction of future time points. Like exact LOO-CV, exact LFO-CV
 requires refitting the model many times to different subsets of the data, which
-is computationally costly for most nontrivial examples, in particular for
+is often computationally costly, in particular for
 Bayesian inference where refitting the model means estimating a new posterior
 distribution rather than a point estimate.
 
@@ -132,14 +130,15 @@ diagnostics about the quality of the approximation.
 In this paper, we extend the ideas from PSIS-LOO-CV and present PSIS-LFO-CV, an
 algorithm that typically only requires refitting the time-series model a small
 number times and will make LFO-CV tractable for many more realistic applications
-than previously possible.
+than previously possible including time series model averaging using
+stacking of predictive distributions [@yao2018].
 
 The structure of the paper is as follows. In Section \ref{m-sap} we introduce
 the idea and various forms of $M$-step-ahead predictions and how to approximate
 it using PSIS. In Section \ref{simulations}, we evaluate the accuracy of the
 approximation using extensive simulations, before we provide two real world case
 studies about the change of level of Lake Huron and the day of the cherry
-blossoms in Japan across the years in Section \ref{case-studies}. We end with a
+blossoms in Kyoto, Japan since 9th century in Section \ref{case-studies}. We end with a
 discussion of the usefulness and limitations of the approach in Section
 \ref{discussion}.
 
@@ -169,7 +168,7 @@ can use the expected log posterior density (ELPD), which, for LFO-CV, can
 be defined as follows:
 
 \begin{equation}
-{\rm ELPD} = \sum_{i=L+1}^{N - M + 1} \log p(y_{i<M} \,|\, y_{<i})
+{\rm ELPD} = \sum_{i=L+1}^{N - M + 1} \log p(y_{i<M} \,|\, y_{<i}).
 \end{equation}
 
 The quantities $p(y_{i<M} \,|\, y_{<i})$ can be computed with the help of the
@@ -190,9 +189,9 @@ p(y_{i<M} \,|\, y_{<i}) \approx \frac{1}{S}
 \sum_{s=1}^S p(y_{i<M} \,|\, y_{<i}, \theta_{<i}^{(s)}).
 \end{equation}
 
-If we deal with factorizable models in which the response values are
-conditionally independent given the parameters, the likelihood can be written in
-the familiar form
+In case of factorizable models the response values are
+conditionally independent given the parameters, and the likelihood can be written in
+the factorized form
 
 \begin{equation}
 p(y \,|\, \theta) = \prod_{n=1}^N p(y_j \,|\, \theta).
@@ -203,8 +202,8 @@ In this case, $p(y_{i<M} \,|\, y_{<i}, \theta_{<i})$ reduces to
 p(y_{i<M} \,|\, \theta_{<i}) = \prod_{n = i}^{i + M -1} p(y_j \,|\, \theta_{<i}),
 \end{equation}
 due to the assumption of conditional independence between $y_{i<M}$ and $y_{<i}$
-given $\theta_{<i}$. Non-factorizable models, which do not make this assumption,
-are discussed in more detail in @buerkner:non-factorizable.
+given $\theta_{<i}$. Cross-validation for non-factorizable models, which do not make this assumption,
+is discussed in @buerkner:non-factorizable.
 
 ## Approximate $M$-step-ahead predictions {#approximate_MSAP}
 
@@ -246,12 +245,12 @@ approximate
 
 \begin{equation}
 \mathbb{E}_p[h(\theta)] \approx 
-\frac{\sum_{s=1}^S h(\theta^{(s)}) r(\theta^{(s)})}{\sum_{s=1}^S r(\theta^{(s)})}
+\frac{\sum_{s=1}^S h(\theta^{(s)}) r(\theta^{(s)})}{\sum_{s=1}^S r(\theta^{(s)})},
 \end{equation}
 
 provided that we can compute the raw importance ratios $r(\theta^{(s)})$ up to
 some multiplicative constant. The main problem with this approach is that
-the raw importance ratios tend to have high or even infinite variance and
+the raw importance ratios tend to have high or infinite variance and
 as such, results computed on their basis can be highly unstable. 
 
 In order to stablize those computations, one solution is to regularize the
@@ -364,15 +363,15 @@ The threshold $\tau$ is crucial to the accuracy and speed of the proposed
 algorithm. If $\tau$ is too large, we need fewer refits and thus achieve higher
 speed, but accuracy is likely to suffer. If $\tau$ is too small, we get high
 accuracy but a lot of refits to that speed will drop noticeably. When performing
-exact CV of Bayesian models, almost all of the computational time is spend
+exact cross-validation of Bayesian models, almost all of the computational time is spend
 fitting models, while the time needed to do predictions is negligible in
 comparison. That is, a reduction of the number of refits basically implies a
-proportional reduction in the overall time necessary for CV of Bayesian models.
+proportional reduction in the overall time necessary for cross-validation of Bayesian models.
 For PSIS-LFO-CV introduced in the present paper, we can expect an appropriate
 threshold to be somewhere between $0.5 \leq \tau \leq 0.7$. It is unlikely to be
 as high as $\tau = 0.7$ used for PSIS-LOO-CV, as the errors are more dependent
-in PSIS-LFO-CV. If there is a large error when leaving out $i$th observation,
-then there is likely to be a large error when leaving out observations $i-1,
+in PSIS-LFO-CV. If there is a large error leaving out $i$th observation,
+then there is likely to be a large error when leaving out observations $i, i-1,
 i-2, \ldots$ until a refit is performed. That is, highly influential
 observations with high $k$ are likely to have stronger effects for total
 estimate in LFO-CV than LOO-CV. We will come back to the issue of setting
@@ -385,8 +384,8 @@ LFO-CV. In this case, another option is to exclude only the block of future
 values that directly follow the observations to be predicted while retaining all
 of the more distant values. This will usually result in lower Pareto $k$
 estimates and thus less refitting, but crucially alters the underlying
-prediction task, to which we will refer to as block-$M$-SAP. As the  
-of application of block-$M$-SAP is less common, we do not 
+prediction task, to which we will refer to as block-$M$-SAP. As the
+application of block-$M$-SAP is less common, we do not 
 discuss this approach in the main part of this paper, but refer the
 interested reader to Appendix B.
 
@@ -891,7 +890,7 @@ solely on past values. Within the set of such prediction tasks, we can choose
 the number $M$ of future values to be predicted at a time. In theory, we may
 also choose how much of the future we leave out, either all future values
 ($M$-SAP) or only a block of more recent future values (block-$M$-SAP). However,
-for reasons discussed in Appendix B, we currently do not recommend using
+for reasons discussed in Appendix B, we do not recommend using
 block-$M$-SAP in practice.
 
 For a set of common time-series models, we established via simulations that
