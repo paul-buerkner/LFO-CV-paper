@@ -222,29 +222,29 @@ review next.
 
 In general, importance sampling is a technique to compute expectations with
 respect to some target distribution using an approximating proposal distribution
-that is easier to draw samples from than the actual target. If $p(\theta)$ is
+that is easier to draw samples from than the actual target. If $f(\theta)$ is
 the target and $g(\theta)$ is the proposal distribution, we can write any
-expectation $\mathbb{E}_p[h(\theta)]$ of some function $h(\theta)$ with
-respect to $p$ as
+expectation $\mathbb{E}_f[h(\theta)]$ of some function $h(\theta)$ with
+respect to $f$ as
 
 \begin{equation}
-\mathbb{E}_p[h(\theta)] = \int h(\theta) p(\theta) \,d\, \theta 
- = \int \frac{[h(\theta) p(\theta) / g(\theta)] g(\theta)}
-    {[p(\theta) / g(\theta)] g(\theta)} \,d\, \theta 
+\mathbb{E}_f[h(\theta)] = \int h(\theta) f(\theta) \,d\, \theta 
+ = \int \frac{[h(\theta) f(\theta) / g(\theta)] g(\theta)}
+    {[f(\theta) / g(\theta)] g(\theta)} \,d\, \theta 
  = \int \frac{h(\theta) r(\theta) g(\theta)}
     {r(\theta) g(\theta)} \,d\, \theta 
 \end{equation}
 
 with importance ratios 
 \begin{equation}
-r(\theta) = \frac{p(\theta)}{g(\theta)}.
+r(\theta) = \frac{f(\theta)}{g(\theta)}.
 \end{equation}
 
 Accordingly, if $\theta^{(s)}$ are $S$ random draws from $g(\theta)$, we can
 approximate
 
 \begin{equation}
-\mathbb{E}_p[h(\theta)] \approx 
+\mathbb{E}_f[h(\theta)] \approx 
 \frac{\sum_{s=1}^S h(\theta^{(s)}) r(\theta^{(s)})}{\sum_{s=1}^S r(\theta^{(s)})},
 \end{equation}
 
@@ -255,24 +255,22 @@ as such, results computed on their basis can be highly unstable.
 
 In order to stablize those computations, one solution is to regularize the
 largest raw importance ratios using the corresponding quantiles of generalized
-Pareto distribution fitted to the largest raw importance ratios. This procedure is called
-Pareto smooth importance sampling [PSIS; @vehtari2017loo; @vehtari2017psis] and
-has been demonstrated to have lower error and faster convergence rate than other
-commonly used reqularization technigues
+Pareto distribution fitted to the largest raw importance ratios. This procedure
+is called Pareto smooth importance sampling [PSIS; @vehtari2017loo;
+@vehtari2017psis] and has been demonstrated to have lower error and faster
+convergence rate than other commonly used reqularization technigues
 [@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
 the goodness of the importance sampling approximation. The shape parameter $k$
-of the generalized Pareto distribution fitted to the largest weights
-provides information about the number of existing moments of the
-weight distribution and the actual importance sampling estimate.
-When $k<0.5$, the weight distribution has finite variance, and
-based on the central limit theorem, the convergence of the estimate is
-fast. As a result, approximate LOO-CV via PSIS is highly accurate
-[@vehtari2017psis]. For $0.5 \leq k < 1$, a generalized central limit
-theorem holds, but the convergence rate drops quickly when $k$
-increases [@vehtari2017psis].  In practice, PSIS has been shown to be
-relatively robust for $k < 0.7$ [@vehtari2017loo;
-@vehtari2017psis]. As such, the default threshold is set to $0.7$ when
-performing PSIS LOO-CV [@vehtari2017loo].  
+of the generalized Pareto distribution fitted to the largest weights provides
+information about the number of existing moments of the weight distribution and
+the actual importance sampling estimate. When $k<0.5$, the weight distribution
+has finite variance, and based on the central limit theorem, the convergence of
+the estimate is fast. As a result, approximate LOO-CV via PSIS is highly
+accurate [@vehtari2017psis]. For $0.5 \leq k < 1$, a generalized central limit
+theorem holds, but the convergence rate drops quickly when $k$ increases
+[@vehtari2017psis].  In practice, PSIS has been shown to be relatively robust
+for $k < 0.7$ [@vehtari2017loo; @vehtari2017psis]. As such, the default 
+threshold is set to $0.7$ when performing PSIS LOO-CV [@vehtari2017loo].
 
 
 ### PSIS applied to $M$-step-ahead predictions
@@ -291,16 +289,22 @@ posterior distribution based on _all_ observations. To obtain $w_i^{(s)}$, we
 first compute the raw importance ratios
 
 \begin{equation}
-r_i^{(s)} \propto \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
+r_i^{(s)} = r_i(\theta^{(s)}) = \frac{f_i(\theta^{(s)})}{g(\theta^{(s)})} 
+\propto \frac{
+\prod_{j \in J \backslash J_i} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+}{
+\prod_{j \in J} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+}
+\propto \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
 \end{equation}
 
-and then stabilize them using PSIS as described above. The index set $J_i$
-contains all the indices of observations which are part of the actually fitted
-model but not of the model whose predictive performance we are trying to
-approximate. That is, for the starting value $i = N - M + 1$, we have $J_i =
-\{i, \ldots, N\}$. This approach to computing importance ratios is a
-generalization of the approach used in PSIS-LOO-CV, where only a single
-observation is left out at a time and thus $J_i = i$ for all $i$.
+with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
+above. The index set $J_i$ contains all the indices of observations which are
+part of the actually fitted model but not of the model whose predictive
+performance we are trying to approximate. That is, for the starting value 
+$i = N - M + 1$, we have $J_i = \{i, \ldots, N\}$. This approach to computing
+importance ratios is a generalization of the approach used in PSIS-LOO-CV, where
+only a single observation is left out at a time and thus $J_i = i$ for all $i$.
 
 Starting from $i = N - M + 1$, we gradually *decrease* $i$ by $1$ (i.e., we move
 backwards in time) and repeat the process. At some observation $i$, the
@@ -754,7 +758,7 @@ date contains data between `r min(cherry$year)` AD and `r max(cherry$year)` AD
 (http://atmenv.envi.osakafu-u.ac.jp/aono/kyophenotemp4/).
 
 In this case study, we are going to predict the annual date of the cherry
-blossom using an approximate Gaussian process model (TODO: what to cite?) to
+blossom using an approximate Gaussian process model (cite) to
 provide flexible non-linear smoothing of the time-series. A visualisation of
 both the data and the fitted model in provided in Figure
 \ref{fig:cherry-blossom}. While the time-series appears rather stable across
