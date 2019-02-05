@@ -164,11 +164,22 @@ p(y_{i<M} \,|\, y_{<i}) = p(y_i, \ldots, y_{i + M - 1} \,|\, y_{1},...,y_{i-1})
 for each $i \in \{L + 1, \ldots, N - M + 1\}$, where we use 
 $y_{i<M} = (y_i, \ldots, y_{i + M - 1})$ and $y_{<i} = (y_{1}, \ldots, y_{i-1})$ 
 to shorten the notation. As a global measure of predictive accuracy, we
-can use the expected log posterior density (ELPD), which, for LFO-CV, can
-be defined as follows:
+can use the expected log posterior density [ELPD; @vehtari2017loo], which, 
+for M-SAP, can be defined as
 
 \begin{equation}
-{\rm ELPD} = \sum_{i=L+1}^{N - M + 1} \log p(y_{i<M} \,|\, y_{<i}).
+\label{ELPD}
+{\rm ELPD} = \sum_{i=L+1}^{N - M + 1} 
+  \int p_t(\tilde{y}_{i<M}) \log p(\tilde{y}_{i<M} \,|\, y_{<i})
+  \, {\rm d} \, \tilde{y}_{i<M}.
+\end{equation}
+
+The distribution $p_t(\tilde{y}_{i<M})$ describes the true data generating
+process for new data $\tilde{y}_{i<M}$. As the true data generating processes
+are unknown, we approximate the ELPD using LFO-CV, which leads to
+ 
+\begin{equation}
+{\rm ELPD}_{\rm LFO} = \sum_{i=L+1}^{N - M + 1} \log p(y_{i<M} \,|\, y_{<i}).
 \end{equation}
 
 The quantities $p(y_{i<M} \,|\, y_{<i})$ can be computed with the help of the
@@ -177,7 +188,7 @@ conditional on only the first $i-1$ observations of the time-series:
 
 \begin{equation}
 p(y_{i<M} \,| \, y_{<i}) = 
-  \int p(y_{i<M} \,| \, y_{<i}, \theta) \, p(\theta\,|\,y_{<i}) \,d\theta. 
+  \int p(y_{i<M} \,| \, y_{<i}, \theta) \, p(\theta\,|\,y_{<i}) \, {\rm d} \theta. 
 \end{equation}
 
 Having obtained $S$ draws $(\theta_{<i}^{(1)}, \ldots, \theta_{<i}^{(S)})$ 
