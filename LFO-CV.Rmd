@@ -175,7 +175,7 @@ for M-SAP, can be defined as
 \end{equation}
 
 The distribution $p_t(\tilde{y}_{i<M})$ describes the true data generating
-process for new data $\tilde{y}_{i<M}$. As the true data generating processes
+process for new data $\tilde{y}_{i<M}$. As these true data generating processes
 are unknown, we approximate the ELPD using LFO-CV, which leads to
  
 \begin{equation}
@@ -306,7 +306,7 @@ r_i^{(s)} = r_i(\theta^{(s)}) = \frac{f_i(\theta^{(s)})}{g(\theta^{(s)})}
 }{
 \prod_{j \in J} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
 }
-\propto \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
+= \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
 \end{equation}
 
 with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
@@ -319,7 +319,7 @@ only a single observation is left out at a time and thus $J_i = i$ for all $i$.
 
 Starting from $i = N - M + 1$, we gradually *decrease* $i$ by $1$ (i.e., we move
 backwards in time) and repeat the process. At some observation $i$, the
-variability of importance ratios $r_i^{(s)}$ will become too large and
+variability of the importance ratios $r_i^{(s)}$ will become too large and
 importance sampling fails. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
