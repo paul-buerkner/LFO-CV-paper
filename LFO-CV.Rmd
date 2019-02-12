@@ -938,6 +938,11 @@ unlikely to be more efficient than methods specialized to compute marginal
 likelihoods such as bridge sampling [@meng1996; @meng2002; @gronau2017], it may
 be a noteworthy options if, for some reason, other methods fail.
 
+# Acknowledgements
+
+We thank Daniel Simpson and Shira Mitchell for helpful comments and discussions
+on earlier versions of this paper.
+
 \newpage
 
 # Appendix {-}
