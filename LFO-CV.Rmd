@@ -200,21 +200,22 @@ p(y_{i<M} \,|\, y_{<i}) \approx \frac{1}{S}
 \sum_{s=1}^S p(y_{i<M} \,|\, y_{<i}, \theta_{<i}^{(s)}).
 \end{equation}
 
-In case of factorizable models the response values are
-conditionally independent given the parameters, and the likelihood can be written in
-the factorized form
+In case of factorizable models the response values are conditionally 
+independent given the parameters, and the likelihood can be written 
+in the factorized form
 
 \begin{equation}
 p(y \,|\, \theta) = \prod_{n=1}^N p(y_j \,|\, \theta).
 \end{equation}
 
-In this case, $p(y_{i<M} \,|\, y_{<i}, \theta_{<i})$ reduces to 
+In this case, $p(y_{i<M} \,|\, y_{<i}, \theta_{<i}^{(s)})$ reduces to 
 \begin{equation}
-p(y_{i<M} \,|\, \theta_{<i}) = \prod_{n = i}^{i + M -1} p(y_j \,|\, \theta_{<i}),
+p(y_{i<M} \,|\, \theta_{<i}^{(s)}) = 
+  \prod_{n = i}^{i + M -1} p(y_j \,|\, \theta_{<i}^{(s)}),
 \end{equation}
 due to the assumption of conditional independence between $y_{i<M}$ and $y_{<i}$
-given $\theta_{<i}$. Cross-validation for non-factorizable models, which do not make this assumption,
-is discussed in @buerkner:non-factorizable.
+given $\theta_{<i}^{(s)}$. Cross-validation for non-factorizable models, which 
+do not make this assumption, is discussed in @buerkner:non-factorizable.
 
 ## Approximate $M$-step-ahead predictions {#approximate_MSAP}
 
@@ -260,7 +261,9 @@ approximate
 \end{equation}
 
 provided that we can compute the raw importance ratios $r(\theta^{(s)})$ up to
-some multiplicative constant. The main problem with this approach is that
+some multiplicative constant. We see that the raw importance ratios serve as 
+weights of the corresponding random draws in the approximation of the quantity 
+of interest. The main problem with this approach is that
 the raw importance ratios tend to have high or infinite variance and
 as such, results computed on their basis can be highly unstable. 
 
@@ -272,7 +275,7 @@ is called Pareto smooth importance sampling [PSIS; @vehtari2017loo;
 convergence rate than other commonly used reqularization technigues
 [@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
 the goodness of the importance sampling approximation. The shape parameter $k$
-of the generalized Pareto distribution fitted to the largest weights provides
+of the generalized Pareto distribution fitted to the largest importance ratios provides
 information about the number of existing moments of the weight distribution and
 the actual importance sampling estimate. When $k<0.5$, the weight distribution
 has finite variance, and based on the central limit theorem, the convergence of
