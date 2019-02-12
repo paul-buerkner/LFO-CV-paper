@@ -187,20 +187,12 @@ posterior distribution $p(\theta \,|\, y_{<i})$ of the parameters $\theta$
 conditional on only the first $i-1$ observations of the time-series:
 
 \begin{equation}
+\label{Lpred}
 p(y_{i<M} \,| \, y_{<i}) = 
   \int p(y_{i<M} \,| \, y_{<i}, \theta) \, p(\theta\,|\,y_{<i}) \, {\rm d} \theta. 
 \end{equation}
 
-Having obtained $S$ draws $(\theta_{<i}^{(1)}, \ldots, \theta_{<i}^{(S)})$ 
-from the posterior distribution $p(\theta\,|\,y_{<i})$, we can estimate 
-$p(y_{i<M} | y_{<i})$ as
-
-\begin{equation}
-p(y_{i<M} \,|\, y_{<i}) \approx \frac{1}{S}
-\sum_{s=1}^S p(y_{i<M} \,|\, y_{<i}, \theta_{<i}^{(s)}).
-\end{equation}
-
-In case of factorizable models the response values are conditionally 
+For factorizable models, the response values are conditionally 
 independent given the parameters, and the likelihood can be written 
 in the factorized form
 
@@ -208,14 +200,27 @@ in the factorized form
 p(y \,|\, \theta) = \prod_{n=1}^N p(y_j \,|\, \theta).
 \end{equation}
 
-In this case, $p(y_{i<M} \,|\, y_{<i}, \theta_{<i}^{(s)})$ reduces to 
+In this case, $p(y_{i<M} \,|\, y_{<i}, \theta)$ reduces to 
 \begin{equation}
-p(y_{i<M} \,|\, \theta_{<i}^{(s)}) = 
-  \prod_{n = i}^{i + M -1} p(y_j \,|\, \theta_{<i}^{(s)}),
+p(y_{i<M} \,|\, y_{<i}, \theta) =p(y_{i<M} \,|\, \theta) = 
+\prod_{n = i}^{i + M -1} p(y_j \,|\, \theta),
 \end{equation}
 due to the assumption of conditional independence between $y_{i<M}$ and $y_{<i}$
-given $\theta_{<i}^{(s)}$. Cross-validation for non-factorizable models, which 
-do not make this assumption, is discussed in @buerkner:non-factorizable.
+given $\theta$. Cross-validation for non-factorizable models, which 
+does not make this assumption, is discussed in @buerkner:non-factorizable.
+
+In practice, we will not be able to directly solve the integral in 
+(\ref{Lpred}), but instead have to use Monte-Carlo methods to approximate it.
+Having obtained $S$ random draws $(\theta_{<i}^{(1)}, \ldots, \theta_{<i}^{(S)})$ 
+from the posterior distribution $p(\theta\,|\,y_{<i})$, we can estimate 
+$p(y_{i<M} | y_{<i})$ as
+
+\begin{equation}
+p(y_{i<M} \,|\, y_{<i}) \approx \frac{1}{S}
+\sum_{s=1}^S p(y_{i<M} \,|\, y_{<i}, \theta_{<i}^{(s)}),
+\end{equation}
+
+which further simplifies for factorizable models as shown above.
 
 ## Approximate $M$-step-ahead predictions {#approximate_MSAP}
 
