@@ -777,7 +777,7 @@ date contains data between `r min(cherry$year)` AD and `r max(cherry$year)` AD
 (http://atmenv.envi.osakafu-u.ac.jp/aono/kyophenotemp4/).
 
 In this case study, we are going to predict the annual date of the cherry
-blossom using an approximate Gaussian process model [@solin2014] to
+blossom using an approximate Gaussian process model [@solin2014, @RiutortMayol2019] to
 provide flexible non-linear smoothing of the time-series. A visualisation of
 both the data and the fitted model in provided in Figure
 \@ref(fig:cherry-blossom). While the time-series appears rather stable across
