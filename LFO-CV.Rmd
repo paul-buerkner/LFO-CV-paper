@@ -1,10 +1,11 @@
 ---
 title: "Approximate leave-future-out cross-validation for time series models"
-author: "Paul-Christian Bürkner $^1$, Jonah Gabry $^2$, & Aki Vehtari $^3$"
+author: "Paul-Christian Bürkner $^{1*}$, Jonah Gabry $^2$, & Aki Vehtari $^3$"
 date: |
   $^1$ Department of Psychology, University of Münster, Germany \break
   $^2$ Institute for Social and Economic Research in Policy, Columbia University, USA \break
-  $^3$ Department of Computer Science, Aalto University, Finland
+  $^3$ Department of Computer Science, Aalto University, Finland\break
+  $^*$ Corresponding author, Email: paul.buerkner@gmail.com
 abstract: |
   One of the common goals of a time series analysis is to use the observed series to inform predictions for future observations. In the absence of any actual new data to predict, cross-validation can be used to estimate a model's future predictive accuracy, for instance, for the purpose of model comparison or selection. As exact cross-validation for Bayesian models is often computationally expensive, approximate cross-validation methods have been developed; most notably methods for leave-one-out cross-validation (LOO-CV).
   Although LOO-CV can be used for time series model assessment, if the actual prediction task is to predict future given the past, LOO-CV provides optimistic estimate as the information from the future observations is available to influence predictions of the past.
