@@ -270,12 +270,12 @@ of interest. The main problem with this approach is that
 the raw importance ratios tend to have high or infinite variance and
 as such, results computed on their basis can be highly unstable. 
 
-In order to stablize those computations, one solution is to regularize the
+In order to stabilize those computations, one solution is to regularize the
 largest raw importance ratios using the corresponding quantiles of generalized
 Pareto distribution fitted to the largest raw importance ratios. This procedure
 is called Pareto smooth importance sampling [PSIS; @vehtari2017loo;
 @vehtari2017psis] and has been demonstrated to have a lower error and faster
-convergence rate than other commonly used reqularization technigues
+convergence rate than other commonly used regularization techniques
 [@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
 the goodness of the importance sampling approximation. The shape parameter $k$
 of the generalized Pareto distribution fitted to the largest importance ratios provides
@@ -476,10 +476,10 @@ factorizability of statistical models].
 
 In addition to exact and approximate LFO-CV, we also compute approximate LOO-CV
 for comparison. This is not because we think LOO-CV is a generally appropriate
-approach for time-series models, but because, in the absense of any approximate
+approach for time-series models, but because, in the absence of any approximate
 LFO-CV method, researchers may have used approximate LOO-CV for time-series
 models in the past simply because it was available. As such, demonstrating that
-LOO-CV is a biased estimate of LFO-CV underlines the importance of our knewly
+LOO-CV is a biased estimate of LFO-CV underlines the importance of our newly
 developed methods for approximate LFO-CV.
 
 All simulations were done in R [@R2018] using the brms package [@brms1;
@@ -727,7 +727,7 @@ observation will be based on more and more observations (see also Section
 \@ref(simulations)). For this example, we see some
 differences in the pointwise ELPD contributions of specific observations which
 were hard to predict accurately by the model (see the right panel of Figure
-\@ref(fig:lh-pw-elpd)). However, these differences happend to cancel out in
+\@ref(fig:lh-pw-elpd)). However, these differences cancel out in
 the overall ELPD estimate. Since, for constant threshold $\tau$, the importance
 weights are the same independent of $M$, the Pareto $k$ estimates are also the 
 same in $4$-SAP as in $1$-SAP.
@@ -769,7 +769,7 @@ cherry_temp <- cherry[!is.na(cherry$temp), ]
 cherry_doy <- cherry[!is.na(cherry$doy), ]
 ```
 
-The cherry blossom in Japan is a famous natural phenomenon occuring once every
+The cherry blossom in Japan is a famous natural phenomenon occurring once every
 year during spring. As climate changes so does the annual date of the cherry
 blossom [@aono2008; @aono2010]. The most complete reconstruction available to
 date contains data between `r min(cherry$year)` AD and `r max(cherry$year)` AD
@@ -943,7 +943,7 @@ unlikely to be more efficient than methods specialized to compute marginal
 likelihoods such as bridge sampling [@meng1996; @meng2002; @gronau2017], it may
 be a noteworthy options if, for some reason, other methods fail.
 
-# Acknowledgements
+# Acknowledgments
 
 We thank Daniel Simpson, Shira Mitchell, and M\r{a}ns Magnusson for helpful 
 comments and discussions on earlier versions of this paper.
