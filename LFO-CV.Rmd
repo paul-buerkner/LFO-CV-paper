@@ -7,16 +7,30 @@ date: |
   $^3$ Department of Computer Science, Aalto University, Finland\break
   $^*$ Corresponding author, Email: paul.buerkner@gmail.com
 abstract: |
-  One of the common goals of a time series analysis is to use the observed series to inform predictions for future observations. In the absence of any actual new data to predict, cross-validation can be used to estimate a model's future predictive accuracy, for instance, for the purpose of model comparison or selection. As exact cross-validation for Bayesian models is often computationally expensive, approximate cross-validation methods have been developed; most notably methods for leave-one-out cross-validation (LOO-CV).
-  Although LOO-CV can be used for time series model assessment, if the actual prediction task is to predict future given the past, LOO-CV provides optimistic estimate as the information from the future observations is available to influence predictions of the past.
-  To properly take into account the prediction task and time series structure, we can use leave-future-out cross-validation (LFO-CV). Like exact LOO-CV, exact LFO-CV requires refitting the model many times to different subsets of the data. Using Pareto smoothed importance sampling, we propose a method for approximating exact LFO-CV that drastically reduces the computational cost while also providing informative diagnostics about the quality of the approximation.
+  One of the common goals of time series analysis is to use the observed series
+  to inform predictions for future observations. In the absence of any actual
+  new data to predict, cross-validation can be used to estimate a model's future
+  predictive accuracy, for instance, for the purpose of model comparison or
+  selection. As exact cross-validation for Bayesian models is often
+  computationally expensive, approximate cross-validation methods have been
+  developed; most notably methods for leave-one-out cross-validation (LOO-CV).
+  If the actual prediction task is to predict the future given the past, LOO-CV
+  provides an overly optimistic estimate as the information from future
+  observations is available to influence predictions of the past. To tackle the
+  prediction task properly and account for the time series structure, we can use
+  leave-future-out cross-validation (LFO-CV). Like exact LOO-CV, exact LFO-CV
+  requires refitting the model many times to different subsets of the data.
+  Using Pareto smoothed importance sampling, we propose a method for
+  approximating exact LFO-CV that drastically reduces the computational costs
+  while also providing informative diagnostics about the quality of the
+  approximation.
 keywords: keywords
 lang: en-US
 class: man
 # figsintext: true
 numbersections: true
 encoding: UTF-8
-bibliography: LFO-CV.bib
+bibliography: LFO-CV
 biblio-style: apalike
 output:
   bookdown::pdf_document2:
