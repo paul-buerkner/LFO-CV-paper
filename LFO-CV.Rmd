@@ -23,8 +23,9 @@ abstract: |
   Using Pareto smoothed importance sampling, we propose a method for
   approximating exact LFO-CV that drastically reduces the computational costs
   while also providing informative diagnostics about the quality of the
-  approximation.
-keywords: keywords
+  approximation.\linebreak\linebreak 
+  Keywords: Time Series Analysis, Cross-Validation, Bayesian Inference, 
+  Pareto Smoothed Importance Sampling
 lang: en-US
 class: man
 # figsintext: true
