@@ -1,5 +1,5 @@
 ---
-title: "Approximate leave-future-out cross-validation for time series models"
+title: "Approximate leave-future-out cross-validation for Bayesian time series models"
 author: "Paul-Christian Bürkner $^{1*}$, Jonah Gabry $^2$, & Aki Vehtari $^3$"
 date: |
   $^1$ Department of Psychology, University of Münster, Germany \break
@@ -24,8 +24,8 @@ abstract: |
   approximating exact LFO-CV that drastically reduces the computational costs
   while also providing informative diagnostics about the quality of the
   approximation.\linebreak\linebreak 
-  Keywords: Time Series Analysis, Cross-Validation, Bayesian Inference, 
   Pareto Smoothed Importance Sampling
+  Keywords: Time Series Analysis, Cross-Validation, Bayesian Inference, 
 lang: en-US
 class: man
 # figsintext: true
@@ -86,50 +86,52 @@ fmt <- function(x, digits = 1, ...) {
 
 # Introduction
 
-A time series is a set of observations each one being recorded at a specific
-time [@brockwell2002]. In statistics, a wide range of time series models has
-been developed, which find application in nearly all empirical sciences [e.g.,
-see @brockwell2002; @hamilton1994]. One common goal of a time series
-analysis is to use the observed series to inform predictions for future.
-When working with discrete time -- in which time points form
-discrete set -- we will refer to the task of predicting a sequence of $M$ future
-observations as $M$-step-ahead prediction ($M$-SAP). Once we have
-fit a Bayesian model and can sample from the posterior predictive distribution,
-it is straightforward to generate predictions as far into the future as we want.
-It is also straightforward to evaluate the $M$-SAP performance of a time series
+A wide range of statistical models for time series have been developed, finding
+applications in nearly all empirical sciences [e.g., see @brockwell2002;
+@hamilton1994]. One common goal of a time series analysis is to use the observed
+series to inform predictions for future time points. In this paper we will
+assume a Bayesian approach to time series modeling, in which case if it is
+possible to sample from the posterior _predictive_ distribution implied by a
+given time series model, then it is straightforward to generate predictions as
+far into the future as we want. When working in discrete time we will refer to
+the task of predicting a sequence of $M$ future observations as $M$-step-ahead
+prediction ($M$-SAP).
+
+It is easy to evaluate the $M$-SAP performance of a time series
 model by comparing the predictions to the observed sequence of $M$ future data
-points once they become available.
+points once they become available. However, we would often like to estimate 
+the future predictive performance of a model _before_ we are able to collect 
+additional observations. If there are many competing models we may also need to
+first decide which model (or which combination of the models) to
+rely on for prediction [@geisser1979; @hoeting1999; @vehtari2002; @ando2010; 
+@vehtari2012]. 
 
-It is common that we would like to estimate the future predictive performance
-before we can collect the future observations.
-If we have many competing models we may also need to
-first decide which of the models (or which combination of the models) we should
-rely on for predictions [@geisser1979; @hoeting1999; @vehtari2002; @ando2010; 
-@vehtari2012]. In the absence of new data with which to evaluate predictive
-performance, one general approach for evaluating a model's predictive accuracy
-is cross-validation. When doing cross-validation, the data is
-split into two subsets. We fit the statistical model based on the first subset
-and then evaluate its predictive accuracy for the second subset. We may do this
-once or many times, each time leaving out another subset.
+In the absence of new data with which to evaluate predictive performance, one
+general approach for evaluating a model's predictive accuracy is
+cross-validation. The data is first split into two subsets, then we fit the
+statistical model to the first subset and evaluate predictive performance with
+the second subset. We may do this once or many times, each time leaving out a
+different subset.
 
-If there is no time ordering in the data or if the focus is to assess the
-non-time-dependent part of the model, we can use leave-one-out
+If the data points are not ordered in time, or if the goal is to assess the
+non-time-dependent part of the model, then we can use leave-one-out
 cross-validation (LOO-CV). For a data set with $N$ observations, we refit the
 model $N$ times, each time leaving out one of the $N$ observations and assessing
-how well the model predicts the left-out observation. Due to the higher number 
-of required refits, exact LOO-CV is computationally expensive in particular
-when performing full Bayesian inference where refitting the model means
-estimating a new posterior distribution rather than a point estimate. However,
-we may approximate exact LOO-CV using the Pareto smoothed importance sampling
-algorithm [PSIS; @vehtari2017loo; @vehtari2017psis]. PSIS-LOO-CV requires only a
-single fit of the full model and comes with diagnostics for assessing the
-validity of the approximation.
+how well the model predicts the left-out observation. Due to the number of
+required refits, exact LOO-CV is computationally expensive, in particular when
+performing full Bayesian inference and refitting the model means estimating a
+new posterior distribution rather than a point estimate. But it is it is
+possible to approximate exact LOO-CV using Pareto smoothed importance sampling
+[PSIS; @vehtari2017loo; @vehtari2017psis]. PSIS-LOO-CV only requires a single
+fit of the full model and has sensitive diagnostics for assessing the validity
+of the approximation.
 
-If there is time ordering in the data and we are interested in the predictive
-performance to new future time points, leaving out only one observation at a
-time allows information from the future to influence predictions of the past
-(i.e., times $t+1, t+2, \ldots$ should not be used to predict time $t$). To
-apply the idea of cross-validation to the $M$-SAP case, we can use
+However, LOO-CV is problematic for times series models if the goal is to
+estimate the predictive performance for future time points. In that case,
+leaving out only one observation at a time will allow information from the
+future to influence predictions of the past (i.e., times $t+1, t+2, \ldots$
+would be used to predict time $t$). Instead, to apply the idea of
+cross-validation to the $M$-SAP case we can use what we will refer to as
 leave-*future*-out cross-validation (LFO-CV). LFO-CV does not refer to one
 particular prediction task but rather to various possible cross-validation
 approaches that all involve some form of prediction of future time points. Like
@@ -138,10 +140,10 @@ subsets of the data, which is computationally expensive, in particular when
 performing full Bayesian inference.
 
 In this paper, we extend the ideas from PSIS-LOO-CV and present PSIS-LFO-CV, an
-algorithm that typically only requires refitting the time-series model a small
-number times. This will make LFO-CV tractable for many more realistic applications
-than previously possible including time series model averaging using
-stacking of predictive distributions [@yao2018].
+algorithm that typically only requires refitting a time-series model a small
+number times. This will make LFO-CV tractable for many more realistic
+applications than previously possible, including time series model averaging
+using stacking of predictive distributions [@yao2018].
 
 The structure of the paper is as follows. In Section \@ref(m-sap), we introduce
 the idea and various forms of $M$-step-ahead predictions and how to approximate
@@ -149,9 +151,9 @@ them using PSIS. In Section \@ref(simulations), we evaluate the accuracy of the
 approximation using extensive simulations. Then, in Section \@ref(case-studies),
 we provide two real world case studies. One analyzing the change in level of
 Lake Huron and the other examining when the annual day of the cherry blossoms in
-Kyoto, Japan, occurred, with the timeline starting in the 9th century. We end
-with a discussion of the usefulness and limitations of the approach in Section
-\@ref(discussion).
+Kyoto, Japan occurred, with the timeline starting in the 9th century. We end in
+Section \@ref(discussion) with a discussion of the usefulness and limitations of
+our approach.
 
 # $M$-step-ahead predictions {#m-sap}
 
