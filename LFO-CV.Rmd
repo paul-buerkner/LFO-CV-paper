@@ -212,13 +212,13 @@ independent given the parameters, and the likelihood can be written
 in the factorized form
 
 \begin{equation}
-p(y \,|\, \theta) = \prod_{n=1}^N p(y_j \,|\, \theta).
+p(y \,|\, \theta) = \prod_{n=1}^N p(y_n \,|\, \theta).
 \end{equation}
 
 In this case, $p(y_{i+1:M} \,|\, y_{1:i}, \theta)$ reduces to 
 \begin{equation}
 p(y_{i+1:M} \,|\, y_{1:i}, \theta) =p(y_{i+1:M} \,|\, \theta) = 
-\prod_{n = i}^{i + M -1} p(y_j \,|\, \theta),
+\prod_{n = i}^{i + M -1} p(y_n \,|\, \theta),
 \end{equation}
 due to the assumption of conditional independence between $y_{i+1:M}$ and $y_{1:i}$
 given $\theta$. Cross-validation for non-factorizable models, which 
