@@ -975,10 +975,10 @@ comments and discussions on earlier versions of this paper.
 
 # Appendix {-}
 
-## Appendix A: Pseudo code of PSIS LFO-CV {-}
+## Appendix A: Pseudo code for PSIS LFO-CV {-}
 
 The R flavored pseudo code shown below provides a description of the proposed
-PSIS LFO-CV algorithm when leaving out all future values. The actual R code can
+PSIS-LFO-CV algorithm when leaving out all future values. The actual R code can
 be found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ```{r, tidy=FALSE, eval=FALSE, echo = TRUE}
@@ -1008,7 +1008,7 @@ PSIS_LFO_CV = function(model, data, M, L, tau) {
       model_refit = update(model_refit, data = data[1:(i - 1), ])
       # perform exact LFO for the ith observation
       LL = log_likelihood(model_refit, data = data[1:(i + M - 1), ])
-      loglik[, i] = LL[, i]
+      LL_matrix[, i] = LL[, i]
       out[i] = log_mean_exp(sum_per_row(LL[, i:(i + M - 1)]))
     } else {
       # PSIS approximation is possible
