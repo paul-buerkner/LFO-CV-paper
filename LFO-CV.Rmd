@@ -641,9 +641,9 @@ performance, we will fit a model for 98 annual measurements of the water level
 (in feet) of [Lake Huron](https://en.wikipedia.org/wiki/Lake_Huron) from the
 years 1875--1972. This data set is found in the *datasets* R package, which is
 installed automatically with R [@R2018]. The time-series shows rather strong
-autocorrelation of the level as some trend towards lower levels for later points
-in time. We fit an AR(4) model and display the model implied predictions along
-with the observed values in Figure \@ref(fig:lake-huron).
+autocorrelation and some downward trend towards lower water levels for later points
+in time. Figure \@ref(fig:lake-huron) shows the observed time series of water 
+levels as well as predictions from a fitted AR(4) model.
 
 ```{r}
 data("LakeHuron")
@@ -688,11 +688,11 @@ loo_lh <- loo(log_lik(fit_lh)[, (L + 1):N])
 ```
 
 Based on this data and model, we will illustrate the use of PSIS-LFO-CV to
-provide estimates of $1$-SAP and $4$-SAP leaving out all future values. To allow
-for reasonable predictions of future values, we will require at least $L = 20$
+provide estimates of $1$-SAP and $4$-SAP when leaving out all future values. To allow
+for reasonable predictions, we will require at least $L = 20$
 historical observations (20 years) to make predictions. Further, we set a
-threshold of $\tau =$ `r k_thres` for the Pareto $k$ estimates at which define
-that refitting becomes necessary. Our fully reproducible analysis of this case
+threshold of $\tau =$ `r k_thres` for the Pareto $k$ estimates that indicate when
+refitting becomes necessary. Our fully reproducible analysis of this case
 study can be found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ```{r}
@@ -726,26 +726,27 @@ sum_lh_elpd_4sap_exact <- summarize_elpds(lh_elpd_4sap_exact)[1]
 sum_lh_elpd_4sap_approx <- summarize_elpds(lh_elpd_4sap_approx)[1]
 ```
 
-We start by computing exact and PSIS-approximated LFO-CV of 1-SAP. We compute 
-${\rm ELPD}_{\rm exact} =$ `r fmt(sum_lh_elpd_1sap_exact, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r fmt(sum_lh_elpd_1sap_approx, 1)`, which are
-almost identical. Not only is the overall ELPD estimated accurately but also
-each of the pointwise ELPD contributions (see the left panel of Figure
+We start by computing exact and PSIS-approximated LFO-CV of 1-SAP. The computed
+ELPD values are
+${\rm ELPD}_{\rm exact} =$ `r fmt(sum_lh_elpd_1sap_exact, 2)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(sum_lh_elpd_1sap_approx, 2)`, which are
+almost identical. Not only is the overall ELPD estimated accurately but so are
+all of the pointwise ELPD contributions (see the left panel of Figure
 \@ref(fig:lh-pw-elpd)). In comparison, PSIS-LOO-CV returns
-${\rm ELPD}_{\rm loo} =$ `r fmt(loo_lh$estimates[1, 1], 1)` and thus
-overestimates the predictive performance, which coincides with our simulation
-results of stationary autoregessive models (see fourth row of Figure
+${\rm ELPD}_{\rm loo} =$ `r fmt(loo_lh$estimates[1, 1], 1)`,
+overestimating the predictive performance and as suggested by our simulation
+results for stationary autoregessive models (see fourth row of Figure
 \@ref(fig:1sap)). Plotting the Pareto $k$ estimates reveals that the model had
 to be refit `r nrefits` times, out of a total of $N - L =$ `r N - L` predicted
 observations (see Figure \@ref(fig:lh-pareto-k)). On average, this means one
 refit every `r fmt((N - L) / nrefits, 1)` observations, which implies a drastic
-speed increase as compared to exact LFO-CV.
+speed increase compared to exact LFO-CV.
 
-Performing LFO-CV of 4-SAP, we compute ${\rm ELPD}_{\rm exact} =$ 
-`r fmt(sum_lh_elpd_4sap_exact, 1)` and ${\rm ELPD}_{\rm approx} =$ 
-`r fmt(sum_lh_elpd_4sap_approx, 1)`, which are again almost identical.
-In general, for increasing $M$, the approximation will tend to become more variable
-around the true value in absolute ELPD units, as the ELPD increment of each 
+Performing LFO-CV for 4-SAP, we obtained ${\rm ELPD}_{\rm exact} =$ 
+`r fmt(sum_lh_elpd_4sap_exact, 2)` and ${\rm ELPD}_{\rm approx} =$ 
+`r fmt(sum_lh_elpd_4sap_approx, 2)`, which are again almost identical.
+In general, as $M$ increases, the approximation will tend to become more variable
+around the true value in absolute ELPD units because the ELPD increment of each 
 observation will be based on more and more observations (see also Section 
 \@ref(simulations)). For this example, we see some
 differences in the pointwise ELPD contributions of specific observations which
@@ -755,7 +756,7 @@ the overall ELPD estimate. Since, for constant threshold $\tau$, the importance
 weights are the same independent of $M$, the Pareto $k$ estimates are also the 
 same in $4$-SAP as in $1$-SAP.
 
-```{r lh-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions of 1-SAP (left) and 4-SAP (right) for the Lake Huron model using a threshold of $\\tau = 0.6$ for the Pareto $k$ estimates. $M$ = number of predicted future observations."}
+```{r lh-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions for 1-SAP (left) and 4-SAP (right) for the Lake Huron model. A threshold of $\\tau = 0.6$ was used for the Pareto $k$ estimates. $M$ is the number of predicted future observations."}
 lh_pw_elpd <- tibble(
   elpd_exact = na.omit(lh_elpd_1sap_exact),
   elpd_approx = na.omit(lh_elpd_1sap_approx),
@@ -805,15 +806,15 @@ provide flexible non-linear smoothing of the time-series. A visualisation of
 both the data and the fitted model in provided in Figure
 \@ref(fig:cherry-blossom). While the time-series appears rather stable across
 earlier centuries, with substantial variation across consecutive years, there
-are some clearly visible trends in the data. In particular in more recent years,
-the cherry blossom tended to happen much earlier than before, presumably as a
-result of climate change [@aono2008; @aono2010].
+are some clearly visible trends in the data. Particularly in more recent years,
+the cherry blossom has tended to happen much earlier than before, which may 
+be a consequence of changes in the climate [@aono2008; @aono2010].
 
 Based on this data and model, we will illustrate the use of PSIS-LFO-CV to
 provide estimates of $1$-SAP and $4$-SAP leaving out all future values. To allow
 for reasonable predictions of future values, we will require at least $L = 100$
 historical observations (100 years) to make predictions. Further, we set a
-threshold of $\tau =$ `r k_thres` for the Pareto $k$ estimates at which define that
+threshold of $\tau =$ `r k_thres` for the Pareto $k$ estimates to determine when
 refitting becomes necessary. Our fully reproducible analysis of this case study 
 can be found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
 
@@ -878,10 +879,10 @@ $\tau =$ `r k_thres`, which is in line with our simulation results (see Section
 \@ref(simulations)). However, as the difference is so small, it may also just be
 random error. As shown in the left panel of Figure \@ref(fig:cb-pw-elpd), the
 pointwise ELPD contributions are highly accurate, with no outliers, indicating
-the our approximation has worked out consistently well across observations.
-PSIS-LFO-CV clearly performs better than PSIS-LOO-CV for which we obtain ${\rm
-ELPD}_{\rm exact} =$ `r fmt(loo_cb$estimates[1, 1], 1)` and thus an
-overestimation of the predictive performance. Plotting the Pareto $k$ estimates
+the our approximation has worked well consistently across observations.
+PSIS-LFO-CV performs much better than PSIS-LOO-CV (${\rm
+ELPD}_{\rm approx} =$ `r fmt(loo_cb$estimates[1, 1], 1)`), which
+overestimates the predictive performance. Plotting the Pareto $k$ estimates
 reveals that the model had to be refit `r nrefits` times, out of a total of $N -
 L =$ `r N - L` predicted observations (see Figure \@ref(fig:cb-pareto-k)). On
 average, this means one refit every `r fmt((N - L) / nrefits, 1)` observations,
@@ -894,11 +895,11 @@ the corresponding 1-SAP results. This is to be expected as the uncertainty of
 PSIS-LFO-CV increases for increasing $M$ (see Section \@ref(simulations)). As
 displayed in the right panel of Figure \@ref(fig:cb-pw-elpd), the pointwise 
 ELPD contributions are highly accurate, with no outliers, indicating the our
-approximation has worked out consistently well across observations. Since, for
+approximation has worked well consistently across observations. For
 constant threshold $\tau$, the importance weights are the same independent of
-$M$, the Pareto $k$ estimates are also the same in $4$-SAP as in $1$-SAP.
+$M$, so the Pareto $k$ estimates are the same for $4$-SAP and $1$-SAP.
 
-```{r cb-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions of 1-SAP (left) and 4-SAP (right) for the cherry blossom model using a threshold of $\\tau = 0.6$ for the Pareto $k$ estimates. $M$ = number of predicted future observations."}
+```{r cb-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions of 1-SAP (left) and 4-SAP (right) for the cherry blossom model. A threshold of $\\tau = 0.6$ was used for the Pareto $k$ estimates. $M$ is the number of predicted future observations."}
 cb_pw_elpd <- tibble(
   elpd_exact = na.omit(cb_elpd_1sap_exact),
   elpd_approx = na.omit(cb_elpd_1sap_approx),
@@ -929,10 +930,11 @@ plot_ks(ks, ids)
 
 # Conclusion {#discussion}
 
-In the present paper, we proposed and evaluated a new method to approximate
-cross-validation methods for time-series models, which we called PSIS-LFO-CV. It
-follows the common task of time-series models to predict future values based
-solely on past values. Within the set of such prediction tasks, we can choose
+We proposed, evaluated, and demonstrated PSIS-LFO-CV, a new method for approximating
+cross-validation methods for time-series models. PSIS-LFO-CV is intended to  
+be used when the prediction task is predicting future values based
+solely on past values and thus leave-one-out cross-validation is inappropriate. 
+Within the set of such prediction tasks, we can choose
 the number $M$ of future values to be predicted at a time. In theory, we may
 also choose how much of the future we leave out, either all future values
 ($M$-SAP) or only a block of more recent future values (block-$M$-SAP). However,
@@ -942,29 +944,27 @@ block-$M$-SAP in practice.
 For a set of common time-series models, we established via simulations that
 PSIS-LFO-CV is an almost unbiased approximation of exact LFO-CV if we choose the
 threshold $\tau$ of the Pareto $k$ estimates to be not larger than $\tau = 0.6$.
-As the number of required model refits, and thus the computational time,
+Because the number of required model refits (and thus the computation time)
 increases with decreasing $\tau$, we currently see $\tau = 0.6$ as a good
 default when performing PSIS-LFO-CV. This is noticeably smaller than the
-recommended threshold for PSIS-LOO-CV of $\tau = 0.7$, because, in PSIS-LFO-CV,
-the errors are dependent as highly influential observations also influence the
-approximation in the following iterations before refit, thus having a stronger
-influence on the overall accuracy than in PSIS-LOO-CV.
+recommended threshold for PSIS-LOO-CV of $\tau = 0.7$ due to the greater 
+dependence in the errors in the LFO case.
 
 Lastly, we want to briefly note that LFO-CV can also be used to compute marginal
-likelihoods. Using basic rules of conditional probability, we can factorize the
+likelihoods. Using basic rules of conditional probability, we can factor the
 log marginal likelihood as
 
 \begin{equation}
 \log p(y) = \sum_{i=1}^N \log p(y_i \,|\, y_{1:i}).
 \end{equation}
 
-This is nothing else than the ELPD of 1-SAP if we set $L = 0$, that is if we
+This is exactly the ELPD of 1-SAP if we set $L = 0$, that is if we
 choose to predict *all* observations using their respective past (the very
 first observation is only predicted from the prior). As such, marginal
 likelihoods may be approximated using PSIS-LFO-CV. Although this approach is
 unlikely to be more efficient than methods specialized to compute marginal
-likelihoods such as bridge sampling [@meng1996; @meng2002; @gronau2017], it may
-be a noteworthy options if, for some reason, other methods fail.
+likelihoods, such as bridge sampling [@meng1996; @meng2002; @gronau2017], it may
+be a noteworthy option if for some reason other methods fail.
 
 # Acknowledgments
 
