@@ -252,12 +252,11 @@ review next.
 
 ### Pareto smoothed importance sampling {#psis}
 
-In general, importance sampling is a technique to compute expectations with
+Importance sampling is a technique for compute expectations with
 respect to some target distribution using an approximating proposal distribution
 that is easier to draw samples from than the actual target. If $f(\theta)$ is
 the target and $g(\theta)$ is the proposal distribution, we can write any
-expectation $\mathbb{E}_f[h(\theta)]$ of some function $h(\theta)$ with
-respect to $f$ as
+expectation of some function $h(\theta)$ with respect to $f$ as
 
 \begin{equation}
 \mathbb{E}_f[h(\theta)] = \int h(\theta) f(\theta) \,d\, \theta 
@@ -281,11 +280,11 @@ approximate
 \end{equation}
 
 provided that we can compute the raw importance ratios $r(\theta^{(s)})$ up to
-some multiplicative constant. We see that the raw importance ratios serve as 
-weights of the corresponding random draws in the approximation of the quantity 
+some multiplicative constant. The raw importance ratios serve as 
+weights on the corresponding random draws in the approximation of the quantity 
 of interest. The main problem with this approach is that
-the raw importance ratios tend to have high or infinite variance and
-as such, results computed on their basis can be highly unstable. 
+the raw importance ratios tend to have large or infinite variance and
+results can be highly unstable. 
 
 In order to stabilize those computations, one solution is to regularize the
 largest raw importance ratios using the corresponding quantiles of generalized
@@ -294,23 +293,23 @@ is called Pareto smooth importance sampling [PSIS; @vehtari2017loo;
 @vehtari2017psis] and has been demonstrated to have a lower error and faster
 convergence rate than other commonly used regularization techniques
 [@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
-the goodness of the importance sampling approximation. The shape parameter $k$
-of the generalized Pareto distribution fitted to the largest importance ratios provides
+the quality of the importance sampling approximation. The shape parameter $k$
+of the generalized Pareto distribution fit to the largest importance ratios provides
 information about the number of existing moments of the weight distribution and
 the actual importance sampling estimate. When $k<0.5$, the weight distribution
 has finite variance, and as a result of the central limit theorem, the convergence of
 the importance sampling estimate with increasing number of draws will be fast. 
 This implies that approximate LOO-CV via PSIS is highly accurate for $k<0.5$ 
 [@vehtari2017psis]. For $0.5 \leq k < 1$, a generalized central limit
-theorem holds, but the convergence rate drops quickly when $k$ increases
+theorem holds, but the convergence rate drops quickly as $k$ increases
 [@vehtari2017psis].  In practice, PSIS has been shown to be relatively robust
 for $k < 0.7$ [@vehtari2017loo; @vehtari2017psis]. As such, the default 
-threshold is set to $0.7$ when performing PSIS LOO-CV [@vehtari2017loo].
+threshold is set to $0.7$ when performing PSIS LOO-CV [@vehtari2017loo;@loo2018].
 
 
 ### PSIS applied to $M$-step-ahead predictions
 
-We now come back to our task of performing $M$-step-ahead predictions in
+We now turn back to our task of performing $M$-step-ahead predictions for
 time-series models. Starting with $i = N - M + 1$, we approximate each
 $p(y_{i+1:M} \,|\, y_{1:i})$ via
 
@@ -335,12 +334,13 @@ r_i^{(s)} = r_i(\theta^{(s)}) = \frac{f_i(\theta^{(s)})}{g(\theta^{(s)})}
 \end{equation}
 
 with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
-above. The index set $J_i$ contains all the indices of observations which are
-part of the actually fitted model but not of the model whose predictive
-performance we are trying to approximate. That is, for the starting value 
-$i = N - M + 1$, we have $J_i = \{i, \ldots, N\}$. This approach to computing
-importance ratios is a generalization of the approach used in PSIS-LOO-CV, where
-only a single observation is left out at a time and thus $J_i = i$ for all $i$.
+above. The index set $J_i$ contains the indices of all observations which are
+part of the data for the model being fitted but not for the model whose
+predictive performance we are trying to approximate. That is, for the starting
+value $i = N - M + 1$, we have $J_i = \{i, \ldots, N\}$. This approach to
+computing importance ratios is a generalization of the approach used in
+PSIS-LOO-CV, where only a single observation is left out at a time and thus 
+$J_i = \{i\}$ for all $i$.
 
 Starting from $i = N - M + 1$, we gradually *decrease* $i$ by $1$ (i.e., we move
 backwards in time) and repeat the process. At some observation $i$, the
@@ -352,7 +352,7 @@ distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
 then do we refit the model using only observations before $i^\star_1$ and then
 restart the process. Until the next refit, we have $J_i = \{i, \ldots, i^\star_1
 -1 \}$ for $i < i^\star_1$, as the refitted model only contains the observations
-up to index $N^\star_1 = i^\star_1 - 1$. An illustration of the above described 
+up to index $N^\star_1 = i^\star_1 - 1$. An illustration of this 
 procedure is shown in Figure \@ref(fig:vis-msap).
 
 In some cases we may only need to refit once and in other cases we will find a
@@ -360,11 +360,11 @@ value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We repeat the refitting as many times as
 is required (only if $k > \tau$) until we arrive at $i = L + 1$. Recall that $L$
 is the minimum number of observations we have deemed acceptable for making
-predictions (setting $L=0$ means predicting only based on the prior). A
-detailed description of the algorithm in the form of pseudo code is provided 
-in Appendix A. If the data contains multiple independent time-series, the 
-above described algorithm should be applied to each of these time-series, 
-separately, and the obtained ELPD values can be summed up afterwards.
+predictions (setting $L=0$ means the first data point will be predicted only
+based on the prior). A detailed description of the algorithm in the form of
+pseudo code is provided in Appendix A. If the data contains multiple independent
+time-series, the algorithm should be applied to each of the time-series
+separately, and the resulting ELPD values can be summed up afterwards.
 
 ```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out all future values. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
 status_levels <- c("included", "left out", "left out (PSIS)")
@@ -399,40 +399,47 @@ ggplot(df, aes(obs, i, fill = Status)) +
   NULL
 ```
 
-The threshold $\tau$ is crucial to the accuracy and speed of the proposed
-algorithm. If $\tau$ is too large, we need fewer refits and thus achieve higher
-speed, but accuracy is likely to suffer. If $\tau$ is too small, we get high
-accuracy but a lot of refits to that speed will drop noticeably. When performing
-exact cross-validation of Bayesian models, almost all of the computational time is spend
-fitting models, while the time needed to do predictions is negligible in
-comparison. That is, a reduction of the number of refits basically implies a
-proportional reduction in the overall time necessary for cross-validation of Bayesian models.
-For PSIS-LFO-CV introduced in the present paper, we can expect an appropriate
-threshold to be somewhere between $0.5 \leq \tau \leq 0.7$. It is unlikely to be
-as high as $\tau = 0.7$ used for PSIS-LOO-CV, as the errors are more dependent
-in PSIS-LFO-CV. If there is a large error leaving out $i$th observation,
-then there is likely to be a large error when leaving out observations $i, i-1,
-i-2, \ldots$ until a refit is performed. That is, highly influential
-observations with high $k$ are likely to have stronger effects for the total
-estimate in LFO-CV than in LOO-CV. We will come back to the issue of setting
+The threshold $\tau$ is crucial to the accuracy and speed of the algorithm. If
+$\tau$ is too large then we need fewer refits and thus achieve higher speed, but
+accuracy is likely to suffer. If $\tau$ is too small, the accuray will be high
+but many refits will be required and overall speed will drop noticeably. When
+performing exact cross-validation of Bayesian models, almost all of the
+computational time is spent fitting models, while the time needed to compute
+predictions is negligible in comparison. That is, a reduction in the number of
+refits essentially implies a proportional reduction in the overall time required
+for cross-validation of Bayesian models.
+
+For the PSIS-LFO-CV algorithm introduced in this paper, we can expect an
+appropriate threshold to be somewhere between $0.5 \leq \tau \leq 0.7$. It is
+unlikely to be as high as the $\tau = 0.7$ default used for PSIS-LOO-CV because
+there will be more dependence in the errors when doing PSIS-LFO-CV. If there is
+a large error when leaving out the $i$th observation, then there is likely to
+also be a large error when leaving out observations $i, i-1, i-2, \ldots$ until
+a refit is performed. That is, highly influential observations corresponding to
+a large $k$ estimate are likely to have stronger effects on the total estimate
+for LFO-CV than for LOO-CV. We will come back to the issue of setting
 appropriate thresholds in Section \@ref(simulations).
 
 An alternative to the LFO-CV approach discussed above is to exclude only the
 block of future values that directly follow the observations to be predicted
-while retaining all of the more distant future values. We will discuss this 
-approach in Appendix B.
+while retaining all of the more distant future values. This approach is
+discussed in Appendix B.
 
 # Simulations {#simulations}
 
-To evaluate the goodness of the approximation of PSIS-LFO-CV, we performed a
-simulation study by systematically varying the following conditions: The number
-$M$ of future observations to be predicted took on values of $M = 1$ and $M =
-4$. The threshold $\tau$ of the Pareto $k$ estimates was varied between $k =
-0.5$ to $k = 0.7$ in steps of $0.1$. In addition, we evaluated six different
-data generating models with linear and/or quadratic terms and/or autoregressive
-terms of order 2 (see Figure \@ref(fig:simmodels)). In all
-conditions, the time-series consistent of $N = 200$ observations and the minimal
-number of observations to make predictions was set to $L = 25$ throughout.
+To evaluate the quality of the PSIS-LFO-CV approximation, we performed a
+simulation study. The following conditions were systematically varied: 
+
+* The number $M$ of future observations to be predicted took on values of $M =
+1$ and $M = 4$.
+* The threshold $\tau$ of the Pareto $k$ estimates was varied between $k = 0.5$
+to $k = 0.7$ in steps of $0.1$.
+* Six different data generating models were evaluated, with linear and/or
+quadratic terms and/or autoregressive terms of order 2 (see Figure 
+\@ref(fig:simmodels)).
+
+In all cases the time-series consisted of $N = 200$ observations and the minimal
+number of observations required before make predictions was set to $L = 25$.
 
 ```{r, include = FALSE}
 seed <- 1234
@@ -480,15 +487,15 @@ An AR(p) model -- an autoregressive model of order $p$ -- can be defined as
 y_i = \eta_i + \sum_{k = 1}^p \varphi_k y_{i - k} + \varepsilon_i,
 \end{equation}
 
-where $\eta_i$ is the linear predictor for the $i$th observation, $\varphi_k$ are
-the autoregressive parameters and $\varepsilon_i$ are pairwise independent
+where $\eta_i$ is the linear predictor for the $i$th observation, $\varphi_k$
+are the autoregressive parameters and $\varepsilon_i$ are pairwise independent
 errors, which are usually assumed to be normally distributed with equal variance
 $\sigma^2$. The model implies a recursive formula that allows for computing the
-right-hand side of the above equation for observation $i$ based on the values of
-the equations for previous observations. Thus, by definition, responses of
-AR-models are not conditionally independent. However they are still
-factorizable, that is we may write down a separate likelihood contribution per
-observation [see @buerkner:non-factorizable for more discussion on 
+right-hand side of the equation for observation $i$ based on the values of the
+equations computed for previous observations. Thus, by definition, responses of
+AR-models are not conditionally independent. However, they are still
+factorizable because we can write down a separate likelihood contribution per
+observation [see @buerkner:non-factorizable for more discussion on
 factorizability of statistical models].
 
 In addition to exact and approximate LFO-CV, we also compute approximate LOO-CV
@@ -496,15 +503,14 @@ for comparison. This is not because we think LOO-CV is a generally appropriate
 approach for time-series models, but because, in the absence of any approximate
 LFO-CV method, researchers may have used approximate LOO-CV for time-series
 models in the past simply because it was available. As such, demonstrating that
-LOO-CV is a biased estimate of LFO-CV underlines the importance of our newly
-developed methods for approximate LFO-CV.
+LOO-CV is a biased estimate of LFO-CV underlines the importance of developing
+methods better suited for the task.
 
 All simulations were done in R [@R2018] using the brms package [@brms1;
 @brms2] together with the probabilistic programming language Stan
-[@carpenter2017] for the modeling fitting, the loo package [@vehtari2017loo] for
+[@carpenter2017] for the modeling fitting, the loo package [@loo2018] for
 the PSIS computation, and several tidyverse packages [@tidyverse] for data
-processing. The full code used in the simulations as well as all results are
-available on Github (https://github.com/paul-buerkner/LFO-CV-paper).
+processing. The full code and all results are available on Github (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ## Results {#sim_results}
 
@@ -548,7 +554,7 @@ $30\%$. Another $30\%$ reduction in the number of refits was achieved by
 using $\tau = 0.7$ but at the cost of disproportionally increasing the 
 positive bias in PSIS-LFO-CV. As expected, LOO-CV is a biased estimate of the 
 1-SAP performance for all non-constant models in particular those with a trend 
-in the time-series (see light-blue histograms in Figure \@ref(fig:1sap)).
+in the time-series (see the lighter histograms in Figure \@ref(fig:1sap)).
 
 ```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
 lfo_sims_1sap %>% 
@@ -600,8 +606,8 @@ clearly visible that the accuracy of the PSIS approximation increases with
 decreasing $\tau$, up to almost perfect accuracy for $\tau = 0.5$. At the same
 time, the proportion of observations at which refitting the model was required
 increased substantially with decreasing $\tau$ (see Table \@ref(tab:refits)). In
-light of the corresponding 1-SAP results (see above), this is not surprising as
-the procedure to determining the necessity of a refit is independent of $M$ (see
+light of the corresponding 1-SAP results presented above, this is not surprising as
+the procedure for determining the necessity of a refit is independent of $M$ (see
 Section \@ref(approximate-MSAP)). Using $\tau = 0.6$ again induced a slight
 positive bias in PSIS-LFO-CV, but also reduced the number of required refits by
 roughly $30\%$. Another $30\%$ reduction in the number of refits was achieved by
