@@ -1025,58 +1025,59 @@ PSIS_LFO_CV = function(model, data, M, L, tau) {
 ## Appendix B: Block $M$-step-ahead predictions {-#approximate-blockMSAP}
 
 Depending on the particular time-series data and model, the Pareto $k$ estimates
-may exceed $\tau$ rather quickly (i.e., after only few observations) and so
-a lot of refits may be required even when carrying out the PSIS approximation
+may exceed $\tau$ rather quickly (after only few observations) and thus many 
+refits may be required even when carrying out the PSIS approximation
 to LFO-CV. In this case, another option is to exclude only the block of $B$ 
 future values that directly follow the observations to be predicted while 
 retaining all of the more distant values $y_{(i+B):N} = (y_{i + B}, \ldots, y_N)$. 
 This will usually result in lower Pareto $k$ estimates and thus less refitting,
-but crucially alters the underlying prediction task, to which we will refer
+but crucially alters the underlying prediction task, which we will refer
 to as block-$M$-SAP.
 
-The block-$M$-SAP version closely resembles the basic $M$-SAP only if values in
+The block-$M$-SAP version closely resembles the basic $M$-SAP _only_ if values in
 the distant future, $y_{(i+B):N}$, contain little information about the current
 observations $i$ being predicted, apart from just increasing precision of the 
 estimated global parameters. Whether this assumption is justified will depend
-on the data and model. That is, if the time-series is non-stationary, distant
+on the data and model. If the time-series is non-stationary, distant
 future value will inform overall trends in the data and thus clearly inform
 predictions of the current observations being left-out. As a result, 
 block-LFO-CV is only recommended for stationary time-series and corresponding
 models.
 
 There are more complexities that arise in block-$M$-SAP that we did not have to
-care about in standard $M$-SAP. One is that, by just removing the block, the
-time-series effectively gets split into two parts, one before and one after the
+care about in standard $M$-SAP. For example, just by removing the block, the
+time-series is effectively split into two parts, one before and one after the
 block. This poses no problem for conditionally independent time-series models,
-where predictions just depend on the parameters and not on the former values of
+where predictions only depend on the parameters and not on the former values of
 the time-series itself. However, if the model's predictions are *not*
 conditionally independent as is the case, for instance, in autoregressive models
-(see Section \@ref(simulations)), the observations of the left-out block have to
+(see Section \@ref(simulations)), the observations in the left-out block have to
 be modeled as missing values in order to retain the integrity of the
 time-series' predictions after the block. A related example from spatial
 statistics, in which the modeling of missing values is required for valid
 inference, can be found in @buerkner:non-factorizable.
 
-Another complexity concerns the PSIS approximation of block-LFO-CV: Not only
+Another issue concerns the PSIS approximation of block-LFO-CV: not only
 does the approximating model contain more observations than the current model
 whose predictions we are approximating, but it also may *not* contain
-observations that are present in the actual model. The latter observations are
-those right after the currently left-out block, which are included in the
-current model, but not in the approximating model as they were part of the block
-at the time the approximating model was (re-)fit. A visualisation of this
-situation is provided in Figure \@ref(fig:vis-block-msap). More formally, let
-$\overline{J}_i$ be the index set of observations that are missing in the
-approximating model at the time of predicting observation $i$. We find
+observations that are present in the actual model. The observations 
+right after the left-out block are included in the current model but not in the approximating model (they were part of the block
+at the time the approximating model was (re-)fit). A visualisation of this
+situation is provided in Figure \@ref(fig:vis-block-msap). 
+
+More formally, let $\overline{J}_i$ be the index set of observations that are
+missing in the approximating model at the time of predicting observation $i$. 
+We find
 
 \begin{equation}
 \overline{J}_i = \{ \max(i + B, N^\star + 1), \ldots, \min(N^\star + B, N) \}
 \end{equation}
 
-if $\max(i + B, N^\star + 1) \leq \min(N^\star + B, N)$ and 
-$\overline{J}_i = \emptyset$ otherwise. As above, $N^\star$ refers to the 
-largest observation included in the model fitting, that is 
-$N^\star = i^\star - 1$ where $i^*$ is the index of the latest refit. The raw 
-importance ratios $r_i^{(s)}$ for each posterior draw $s$ are then computed as
+if $\max(i + B, N^\star + 1) \leq \min(N^\star + B, N)$ and $\overline{J}_i =
+\emptyset$ otherwise. As above, $N^\star$ refers to the largest observation
+included in the model fitting ($N^\star = i^\star - 1$, where $i^*$ is the index
+of the latest refit). The raw importance ratios $r_i^{(s)}$ for each posterior
+draw $s$ are then computed as
 
 \begin{equation}
 r_i^{(s)} \propto \frac{\prod_{j \in \overline{J}_i} p(y_j \,|\, \,\theta^{(s)})}
@@ -1168,12 +1169,12 @@ sum_lh_elpd_block4sap_approx <- summarize_elpds(lh_elpd_block4sap_approx)[1]
 ```
 
 Results of the block-1-SAP simulations are shown in Figure \@ref(fig:block1sap).
-PSIS-LFO-CV provides almost unbiased estimate of the corresponding exact LFO-CV
-for all investigated conditions, that is regardless of the threshold $\tau$ or
+PSIS-LFO-CV provides an almost unbiased estimate of the corresponding exact LFO-CV
+for all investigated conditions, regardless of the threshold $\tau$ or
 the data generating model. The number of required refits was not only much
 smaller than when leaving out all future values, but practically approached zero
-for most conditions (see Table \@ref(tab:block-refits)). PSIS-LOO-CV has also
-small bias, but higher variance than PSIS-LFO-CV. This is plausible given that
+for most conditions (see Table \@ref(tab:block-refits)). PSIS-LOO-CV also has
+small bias, but the variance is larger than for PSIS-LFO-CV. This is plausible given that
 LOO-CV and LFO-CV of block-1-SAP only differ in whether they include the
 relatively few observations in the block when fitting the approximating model.
 
@@ -1222,23 +1223,23 @@ block_lfo_sims_1sap %>%
 ```
 
 Results of the block-4-SAP simulations (see Figure \@ref(fig:block4sap)) are
-overall similar to the corresponding block-1-SAP simulations. In particular,
+mostly similar to the corresponding block-1-SAP simulations. In particular,
 PSIS-LFO-CV has small bias compared to the exact LFO-CV. However, the accuracy
 of PSIS-LFO-CV for block-4-SAP is highly variable when applied to autoregressive
-models (see Figure \@ref(fig:block4sap)), something that
-is also visible in block-1-SAP although to a smaller degree. This seems to be a
-counter-intuitive result given that predictions should be more certain in the
-block version as more observations are available to inform the model. However,
-it can be explained as follows. In autoregressive models, predictions of future
-observations directly depend on past observations, that is predictions are not
-conditionally independent. This becomes a problem when dealing with observations
-that are missing in the approximating model right after the block of left out
-observations, since the directly preceding observations are part of the block
-and are thus have to be treated as missing values (for details see Section
+models (see Figure \@ref(fig:block4sap)), something that is also visible in the
+block-1-SAP results, although to a lesser degree. This may seems to be a
+counter-intuitive result since the predictions should have less uncertainty in
+the block version, which uses more observations to inform the model. However, it
+can be explained as follows. In autoregressive models, predictions of future
+observations directly depend on past observations (they are not conditionally
+independent). This becomes a problem when dealing with observations that are
+missing in the approximating model right after the block of left out
+observations because the immediately preceding observations are part of the
+block and are thus treated as missing values (for details see Section
 \@ref(approximate-blockMSAP)). This implies a disproportionally high variability
-in the predictions of observations right after the block in autoregressive
-models, which then naturally propagates into higher variability of the
-PSIS-LFO-CV approximations.
+in the predictions for observations right after the block in autoregressive
+models, which then naturally propagates into the higher variability we see in
+the PSIS-LFO-CV approximations.
 
 ```{r block4sap, fig.height=8, fig.cap="Simulation results of block 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The number of left-out future observations was set to $B = 10$."}
 block_lfo_sims_4sap %>% 
@@ -1258,8 +1259,8 @@ block_lfo_sims_4sap %>%
 
 ### Annual measurements of the level of Lake Huron {-}
 
-In the following, we discuss the application of block-LFO-CV on our case study
-about annual measurements of the level of Lake Huron (see Section
+In the following, we discuss block-LFO-CV in the context of our case study
+on annual measurements of the water level in Lake Huron (see Section
 \@ref(case-LH)). It is not entirely clear how stationary the time-series is as it
 may have a slight negative trend across time (see Figure \@ref(fig:lake-huron)).
 However, the AR(4) model we are using assumes stationarity and it is appropriate
@@ -1269,22 +1270,22 @@ model will not reach that far into the future. That is, we will include all
 observations after this block when re-fitting the model.
 
 Approximate LFO-CV of block-1-SAP reveals 
-${\rm ELPD}_{\rm exact} =$ `r fmt(sum_lh_elpd_block1sap_exact, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r fmt(sum_lh_elpd_block1sap_approx, 1)`, 
+${\rm ELPD}_{\rm exact} =$ `r fmt(sum_lh_elpd_block1sap_exact, 2)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(sum_lh_elpd_block1sap_approx, 2)`, 
 which are almost identical. Plotting the Pareto $k$ estimates reveals that the
 model had to be refit `r nrefits` times, out of a total of $N - L =$ 
 `r N - L` predicted observations (see Figure \@ref(fig:lh-pareto-k-block)). On average, 
 this means one refit every `r fmt((N - L) / nrefits, 1)` observations, which
-again implies a drastic speed increase as compared to exact LFO-CV. What is more,
-we needed even fewer refits than in non-block LFO-CV, an observation we already
-made in our simulation in Section \@ref(simulations).
+again implies a drastic speed increase compared to exact LFO-CV. What is more,
+as expected based on our simulation results in Section \@ref(simulations)
+we needed even fewer refits than in non-block LFO-CV.
 Performing LFO-CV of block-4-SAP, we compute
-${\rm ELPD}_{\rm exact} =$ `r fmt(sum_lh_elpd_block4sap_exact, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r fmt(sum_lh_elpd_block4sap_approx, 1)`, 
+${\rm ELPD}_{\rm exact} =$ `r fmt(sum_lh_elpd_block4sap_exact, 2)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(sum_lh_elpd_block4sap_approx, 2)`, 
 which are similar but not quite a close as in the 1-SAP case.
-Since AR-models fall in the class of conditionally dependent models, predicting
+Since AR-models fall in the class of conditionally _dependent_ models, predicting
 observations right after the left-out block may be quite difficult as shown
-in Section \@ref(simulations). However, for the present data set, the
+in Section \@ref(simulations). However, for this data set, the
 PSIS approximations of block-LFO-CV seem to have worked reasonably well.
 
 ```{r lh-pareto-k-block, fig.height=2.5, fig.cap="Pareto $k$ estimates for PSIS-LFO-CV of the Lake Huron model leaving out a block of 10 future values. The dotted red line indicates the threshold at which the refitting was necessary."}
@@ -1295,14 +1296,13 @@ plot_ks(ks, ids)
 
 ### Conclusion {-}
 
-Among other things, our simulations indicated that the accuracy of PSIS
+Among other things, our simulations indicate that the accuracy of PSIS
 approximated block-$M$-SAP is highly variable for conditionally dependent models
 such as autoregressive models. Together with the fact that block-$M$-SAP is only
-theoretically reasonable for stationary time series, as the future will always
-be informative for non-stationary ones, this leaves PSIS approximated
-block-$M$-SAP in a difficult spot. It appears to be a theoretically reasonable
-and empirically accurate choice only for conditionally independent models fit to
-stationary time-series. If the time-series is not too long and the corresponding
-model not too complex, so that a few more refits are acceptable, it might thus
-be more consistent and safe to just use PSIS-LFO-CV of $M$-SAP not trying to
-approximate block-$M$-SAP at all.
+theoretically reasonable for stationary time series, this leaves PSIS
+approximated block-$M$-SAP in a difficult spot. It appears to be a theoretically
+reasonable and empirically accurate choice only for conditionally independent
+models fit to stationary time-series. If the time-series is not too long and the
+corresponding model not too complex, so that a few more refits are acceptable,
+it may be more consistent and safe to just use PSIS-LFO-CV of $M$-SAP instead of
+trying approximate block-$M$-SAP.
