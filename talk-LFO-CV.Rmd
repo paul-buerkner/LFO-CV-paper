@@ -1,0 +1,510 @@
+---
+title: "Approximate leave-future-out cross-validation for Bayesian time series models"
+author: "Paul Bürkner, Jonah Gabry, Aki Vehtari"
+# date: "`r Sys.Date()`"
+output: 
+ beamer_presentation:
+   #toc: True
+   theme: "metropolis"
+   fig_width: 4  # 6
+   fig_height: 2.8  # 4.5
+   df_print: kable
+   pandoc_args: "--pdf-engine=xelatex"
+   slide_level: 2
+   includes:
+      in_header: theme_options.tex
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE, cache=FALSE}
+options(width = 100)
+knitr::opts_chunk$set(
+   cache = TRUE,
+   echo = FALSE
+)
+
+# define a hook to allow font size changes in beamer:
+# from https://stackoverflow.com/questions/26372138/beamer-presentation-rstudio-change-font-size-for-chunk
+knitr::knit_hooks$set(mysize = function(before, options, envir) {
+  if (before) 
+    return(options$size)
+})
+
+library(tidyverse)
+library(brms)
+library(latex2exp)
+theme_set(theme_default())
+colors <- unname(unlist(bayesplot::color_scheme_get()[c(6, 2)]))
+source("sim_functions.R")
+```
+
+## Water Level of Lake Huron
+
+```{r}
+data("LakeHuron")
+N <- length(LakeHuron)
+df <- data.frame(
+  y = as.numeric(LakeHuron),
+  year = as.numeric(time(LakeHuron)),
+  time = 1:N
+) 
+```
+
+```{r fit_lh}
+fit_lh <- brm(
+  y | mi() ~ 1, 
+  data = df, 
+  autocor = cor_ar(~time, p = 4), 
+  prior = prior(normal(0, 0.5), class = "ar"),
+  chains = 2, warmup = 1000, iter = 5000,
+  control = list(adapt_delta = 0.99),
+  seed = 5838296, file = "models/fit_lh"
+)
+```
+
+```{r lake-huron-pred1, cache=FALSE}
+oos <- 92:98
+df$oos <- factor(seq_len(nrow(df)) %in% oos)
+df_sub <- df[-oos, ]
+preds <- posterior_predict(fit_lh, newdata = df_sub)
+preds <- cbind(
+  Estimate = colMeans(preds), 
+  Q5 = apply(preds, 2, quantile, probs = 0.05),
+  Q95 = apply(preds, 2, quantile, probs = 0.95)
+)
+preds <- cbind(df_sub, preds)
+
+ggplot(preds, aes(x = year, y = Estimate)) +
+  geom_smooth(
+    aes(ymin = Q5, ymax = Q95), stat = "identity",
+    size = 0.5, fill = "grey60") +
+  geom_point(aes(y = y)) + 
+  labs(y = "Water Level (ft)", x = "Year") +
+  xlim(c(1875, 1975))
+```
+
+## Water Level of Lake Huron: Predictions
+
+```{r lake-huron-pred2, cache=FALSE}
+preds <- posterior_predict(fit_lh, oos = oos)
+preds <- cbind(
+  Estimate = colMeans(preds), 
+  Q5 = apply(preds, 2, quantile, probs = 0.05),
+  Q95 = apply(preds, 2, quantile, probs = 0.95)
+)
+preds <- cbind(df, preds)
+   
+ggplot(preds, aes(x = year, y = Estimate)) +
+  geom_smooth(
+     aes(ymin = Q5, ymax = Q95, fill = oos), 
+     stat = "identity", size = 0.5
+  ) +
+  geom_point(aes(y = y)) + 
+  labs(y = "Water Level (ft)", x = "Year") +
+  xlim(c(1875, 1975)) +
+  scale_fill_manual(values = c("grey60", "red")) +
+  guides(fill = FALSE) 
+```
+
+## Leave-Future-Out Cross-Validation (LFO-CV)
+
+Perform M-step-ahead predictions (M-SAP)
+$$
+p(y_i, \ldots, y_{i + M - 1} \,|\, y_{1},...,y_{i-1}) =: 
+p(y_{i+1:M} \,|\, y_{1:i})
+$$
+
+Estimate expected M-SAP performance via LFO-CV
+$$
+{\rm ELPD}_{\rm LFO} = \sum_{i=L+1}^{N - M + 1} \log p(y_{i+1:M} \,|\, y_{1:i})
+$$
+
+This requires fitting a separate model for each $i$
+$$
+p(y_{i+1:M} \,| \, y_{1:i}) = 
+  \int p(y_{i+1:M} \,| \, y_{1:i}, \theta) \, 
+    p(\theta\,|\,y_{1:i}) \, {\rm d} \theta
+$$
+
+<!--
+- $N$: total number of observations
+- $M$: number of predicted future values 
+- $L$: minimal number of observation required for predictions
+-->
+
+## Approximate M-Step-Ahead predictions
+
+\begin{center}
+We are moving \textbf{backwards} in time!
+\end{center}
+
+```{r vis-msap}
+status_levels <- c("included", "left out", "left out (PSIS)")
+df <- data.frame(
+  obs = rep(1:9, 3),
+  i = factor(rep(3:5, each = 9)),
+  Status = c(
+    rep("included", 2), rep("left out (PSIS)", 2), rep("left out", 5),
+    rep("included", 3), rep("left out (PSIS)", 1), rep("left out", 5),
+    rep("included", 4), rep("left out", 5)
+  )
+) %>%
+  mutate(Status = factor(Status, levels = status_levels))
+
+msap_colors <- c(
+  bayesplot::color_scheme_get("viridis")$light,
+  bayesplot::color_scheme_get("viridis")$dark,
+  bayesplot::color_scheme_get("viridis")$mid_highlight
+)
+
+ggplot(df, aes(obs, i, fill = Status)) +
+  geom_tile(height = 0.9, width = 1, col = "black") +
+  annotate(
+    'text', x = 3:5, y = c(1, 2, 3), 
+    label = "X", parse = TRUE, 
+    size = 10, color = "white"
+  ) +
+  labs(x = "Observation", y = "Predicted observation") +
+  scale_x_continuous(breaks = 1:9) +
+  scale_fill_manual(values = msap_colors) +
+  bayesplot::theme_default() +
+  guides(fill = FALSE)
+```
+
+## Pareto Smoothg Importance Sampling (PSIS) for LFO-CV
+
+Let's call $J_i$ the index set of observations included in the approximating model but **not** in the target model
+
+For observation $i$ and posterior sample $s$ we compute the importance ratio as
+$$
+r_i^{(s)} = \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})}
+$$
+
+Stabilize $r_i^{(s)}$ via Pareto smoothing to obtain weights $w_i^{(s)}$
+
+PSIS approximation of M-SAP:
+$$
+ p(y_{i+1:M} \,|\, y_{1:i}) \approx
+   \frac{ \sum_{s=1}^S w_i^{(s)} \, p(y_{i+1:M} \,|\, y_{1:i}, \theta^{(s)})}
+        { \sum_{s=1}^S w_i^{(s)}}
+$$
+
+##
+
+\centering
+\Large At what point do we have to refit the model?
+
+## The Generalized Pareto Distribution
+
+```{r}
+x <- seq(0.01, 10, 0.01)
+k <- c(0, 0.5, 0.7, 1)
+y <- unlist(lapply(k, SpatialExtremes::dgpd, x = x, loc = 0, scale = 1))
+gpd_df <- data.frame(x, y) %>%
+  mutate(k = factor(rep(k, each = n() / length(k))))
+
+ggplot(gpd_df, aes(x, y, color = k)) +
+  geom_line(size = 0.8) +
+  labs(x = "", y = "Density")
+```
+
+\centering
+Refit the model if $k$ exceeds a given threshold $\tau$
+
+## Simulation Conditions
+
+```{r, include = FALSE}
+seed <- 1234
+set.seed(seed)
+N <- 200
+time <- seq_len(N)
+stime <- scale_unit_interval(time)
+models <- c("AR2-only", "AR2-linear", "AR2-quadratic")
+AR2_labels <- c("stationary", "linear", "quadratic")
+
+fits <- preds <- setNames(vector("list", length(models)), models)
+for (m in names(fits)) {
+   file <- paste0("models/fit_", m)
+   fits[[m]] <- fit_model(model = m, N = N, seed = seed, file = file)
+   pred <- posterior_predict(fits[[m]])
+   preds[[m]] <- fits[[m]]$data %>% 
+     mutate(       
+       time = time, 
+       stime = stime,
+       Estimate = colMeans(pred), 
+       Q5 = apply(pred, 2, quantile, probs = 0.05),
+       Q95 = apply(pred, 2, quantile, probs = 0.95),
+       model = m
+    )
+}
+preds <- as_tibble(bind_rows(preds)) %>%
+   mutate(model = factor(model, levels = models, labels = AR2_labels)) %>%
+   select(-`I(stime^2)`)
+```
+
+```{r simmodels, fig.height=3.5, fig.width=5}
+ggplot(preds, aes(x = time, y = Estimate)) +
+  facet_wrap(~model) +
+  geom_vline(xintercept = 25, linetype = 3) +
+  geom_smooth(aes(ymin = Q5, ymax = Q95), stat = "identity", size = 0.5) +
+  geom_point(aes(y = y), size = 0.5) +
+  labs(y = "y") 
+```
+
+
+## Simulation Results: ELPD of 1-SAP
+
+```{r}
+mlevels <- c(
+  "constant", "linear", "quadratic",
+  "AR2-only", "AR2-linear", "AR2-quadratic"
+)
+tau_levels <- TeX(paste0("$\\tau$ = ", c(0.5, 0.6, 0.7)))
+lfo_sims <- read_rds("results/lfo_sims.rds") %>%
+  as_tibble() %>%
+  mutate(
+    model = factor(model, levels = mlevels),
+    tau = factor(k_thres, labels = tau_levels),
+    elpd_loo = map_dbl(res, ~ .$loo_cv$estimates["elpd_loo", 1]),
+    elpd_exact_lfo = map_dbl(res, ~ .$lfo_exact_elpd[1]),
+    elpd_approx_lfo = map_dbl(res, ~ .$lfo_approx_elpd[1]),
+    elpd_diff_lfo = elpd_approx_lfo - elpd_exact_lfo,
+    elpd_diff_loo = elpd_loo - elpd_exact_lfo,
+    npreds = map_dbl(res, ~ sum(!is.na(.$lfo_approx_elpds))),
+    nrefits = lengths(map(res, ~ attr(.$lfo_approx_elpds, "refits"))),
+    rel_nrefits = nrefits / npreds
+  ) %>%
+  # only keep results of AR models
+  filter(is.na(B), grepl("AR2", model)) %>% 
+  mutate(model = factor(model, labels = AR2_labels)) 
+```
+
+```{r, cache=FALSE}
+lfo_refits_1sap <- lfo_sims %>% 
+  filter(M == 1) %>%
+  select(model, tau, rel_nrefits) %>%
+  group_by(model, tau) %>%
+  summarise(rel_nrefits = round(mean(rel_nrefits), 2))
+```
+
+```{r 1sap, message=FALSE, fig.height=3.5, fig.width=5}
+lfo_sims %>% 
+  filter(M == 1) %>% 
+  ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
+  facet_grid(
+    model ~ tau, #scales = "free_y", 
+    labeller = label_parsed
+  ) +
+  geom_histogram(alpha = 0.7, fill = colors[1]) +
+  labs(x = 'ELPD difference to exact LFO-CV', y = "") +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_label(
+    aes(x = 5.2, y = 1.8, label = rel_nrefits), 
+    data = lfo_refits_1sap, inherit.aes = FALSE
+  ) + 
+  theme_bw() +
+  theme(
+    legend.position = "bottom",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  NULL 
+```
+
+## Simulation Results: ELPD of 4-SAP
+
+```{r cache=FALSE}
+lfo_refits_4sap <- lfo_sims %>% 
+  filter(M == 4) %>%
+  select(model, tau, rel_nrefits) %>%
+  group_by(model, tau) %>%
+  summarise(rel_nrefits = round(mean(rel_nrefits), 2))
+```
+
+```{r 4sap, message=FALSE, warning=FALSE, fig.height=3.5, fig.width=5}
+lfo_sims %>% 
+  filter(M == 4) %>% 
+  ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
+  facet_grid(
+    model ~ tau, #scales = "free_y", 
+    labeller = label_parsed
+  ) +
+  geom_histogram(alpha = 0.7, fill = colors[1]) +
+  labs(x = 'ELPD difference to exact LFO-CV', y = "") +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_label(
+    aes(x = 22, y = 0.25, label = rel_nrefits), 
+    data = lfo_refits_4sap, inherit.aes = FALSE
+  ) + 
+  xlim(c(-15, 30)) + 
+  theme_bw() +
+    theme(
+    legend.position = "bottom",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank()
+  ) +
+  NULL 
+```
+
+## Lake Huron Model: Pareto k estimates
+
+```{r}
+L <- 20
+M <- 1
+lh_elpd_1sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, 
+  file = "results/lh_elpd_1sap_exact.rds"
+)
+lh_elpd_1sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, 
+  file = "results/lh_elpd_1sap_approx.rds"
+)
+refits <- attributes(lh_elpd_1sap_approx)$refits
+nrefits <- length(refits)
+
+sum_lh_elpd_1sap_exact <- summarize_elpds(lh_elpd_1sap_exact)[1]
+sum_lh_elpd_1sap_approx <- summarize_elpds(lh_elpd_1sap_approx)[1]
+```
+
+```{r}
+M <- 4
+lh_elpd_4sap_exact <- compute_lfo(
+  fit_lh, type = "exact", M = M, L = L, 
+  file = "results/lh_elpd_4sap_exact.rds"
+)
+lh_elpd_4sap_approx <- compute_lfo(
+  fit_lh, type = "approx", M = M, L = L, 
+  file = "results/lh_elpd_4sap_approx.rds"
+)
+sum_lh_elpd_4sap_exact <- summarize_elpds(lh_elpd_4sap_exact)[1]
+sum_lh_elpd_4sap_approx <- summarize_elpds(lh_elpd_4sap_approx)[1]
+```
+
+```{r lh-pareto-k}
+N <- length(LakeHuron)
+ks <- na.omit(attributes(lh_elpd_1sap_approx)$ks)
+ids <- (L + 1):N
+plot_ks(ks, ids)
+```
+
+## Lake Huron Model: ELPD Estimates
+
+```{r lh-pw-elpd}
+lh_pw_elpd <- tibble(
+  elpd_exact = na.omit(lh_elpd_1sap_exact),
+  elpd_approx = na.omit(lh_elpd_1sap_approx),
+  k = na.omit(attributes(lh_elpd_1sap_approx)$ks),
+  M = "M = 1"
+) %>% bind_rows(
+  tibble(
+    elpd_exact = na.omit(lh_elpd_4sap_exact),
+    elpd_approx = na.omit(lh_elpd_4sap_approx),
+    k = na.omit(attributes(lh_elpd_4sap_approx)$ks),
+    M = "M = 4"
+  )
+)
+ggplot(lh_pw_elpd, aes(elpd_exact, elpd_approx)) +
+  facet_wrap(facets = "M", nrow = 1, ncol = 2, scales = "free") +
+  geom_abline(slope = 1) +
+  geom_point() +
+  labs(y = "Approximate ELPD", x = "Exact ELPD") + 
+  theme_bw()
+```
+
+## Conclusion
+
+- CV has to respect the model's prediction task
+
+- LFO-CV seems reasonable for time series models
+
+- We can approximate LFO-CV via PSIS
+
+- PSIS-LFO-CV provides a close approximation to exact LFO-CV
+
+- PSIS-LFO-CV improves speed by an order of magnitude
+
+
+##
+
+\centering
+\Large Thank You!
+
+
+## Importance Sampling
+
+All we care about are expectations (over $f$):
+$$
+\mathbb{E}_f[h(\theta)] = \int h(\theta) f(\theta) \,d\, \theta
+$$
+
+Switch the distribution (from $f$ to $g$) over which to integrate:
+$$
+\mathbb{E}_f[h(\theta)] = 
+  \frac{\int h(\theta) r(\theta) g(\theta) \,d\, \theta}
+    {\int r(\theta) g(\theta) \,d\, \theta}
+$$
+
+with importance ratios
+$$
+r(\theta) = \frac{f(\theta)}{g(\theta)}
+$$
+
+## Pareto Smoothed Importance Sampling (PSIS)
+
+Suppose we can obtain samples $\theta^{(s)}$ from $g$ and compute importance ratios $r(\theta^{(s)}) =: r^{(s)}$. Then we can approximate 
+$$
+\mathbb{E}_f[h(\theta)] \approx 
+\frac{\sum_{s=1}^S r^{(s)} \, h(\theta^{(s)})}{\sum_{s=1}^S r^{(s)}}
+$$
+
+Problem: The importance ratios $r^{(s)}$ tend to be highly unstable
+
+Solution: Stabilize $r^{(s)}$ by applying Pareto Smoothing
+
+- PSIS weights $w^{(s)}$ that replace $r^{(s)}$
+- Diagnose accuracy via the Pareto shape parameter $k$
+
+
+## Approximate Block M-Step-Ahead Predictions
+
+```{r vis-block-msap, }
+status_levels <- c("included", "included (PSIS)", "left out", "left out (PSIS)")
+df <- data.frame(
+  obs = rep(1:9, 3),
+  i = factor(rep(3:5, each = 9)),
+  Status = c(
+    rep("included", 2), rep("left out (PSIS)", 2), rep("left out", 2), 
+    rep("included (PSIS)", 2), rep("included", 1),
+    rep("included", 3), rep("left out (PSIS)", 1), rep("left out", 3), 
+    rep("included (PSIS)", 1), rep("included", 1),
+    rep("included", 4), rep("left out", 4), rep("included", 1)
+  )
+) %>%
+  mutate(Status = factor(Status, levels = status_levels))
+
+block_msap_colors <- c(
+  bayesplot::color_scheme_get("viridis")$light,
+  bayesplot::color_scheme_get("viridis")$light_highlight,
+  bayesplot::color_scheme_get("viridis")$dark,
+  bayesplot::color_scheme_get("viridis")$mid_highlight
+)
+
+ggplot(df, aes(obs, i, fill = Status)) +
+  geom_tile(height = 0.9, width = 1, col = "black") +
+  annotate(
+    'text', x = 3:5, y = 1:3, 
+    label = "X", parse = TRUE, 
+    size = 10, color = "white"
+  ) +
+  annotate(
+    'text', x = c(4:6, 5:7, 6:8), y = rep(1:3, each = 3), 
+    label = "B", parse = TRUE, size = 10, color = "white"
+  ) +
+  labs(x = "Observation", y = "Predicted observation") +
+  scale_x_continuous(breaks = 1:9) +
+  scale_fill_manual(values = block_msap_colors) +
+  guides(fill = FALSE) +
+  bayesplot::theme_default() +
+  NULL
+```
