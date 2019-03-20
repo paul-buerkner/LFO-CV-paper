@@ -415,15 +415,18 @@ ggplot(lh_pw_elpd, aes(elpd_exact, elpd_approx)) +
 ## Conclusion
 
 - CV has to respect the model's prediction task
-
 - LFO-CV seems reasonable for time series models
-
 - We can approximate LFO-CV via PSIS
-
 - PSIS-LFO-CV provides a close approximation to exact LFO-CV
-
 - PSIS-LFO-CV improves speed by an order of magnitude
 
+\bigskip
+
+Resources:
+
+- Preprint: https://arxiv.org/abs/1902.06281
+- GitHub: https://github.com/paul-buerkner/LFO-CV-paper 
+- Email: paul.buerkner@gmail.com
 
 ##
 
