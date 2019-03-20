@@ -534,12 +534,6 @@ lfo_sims <- read_rds("results/lfo_sims.rds") %>%
     nrefits = lengths(map(res, ~ attr(.$lfo_approx_elpds, "refits"))),
     rel_nrefits = nrefits / npreds
   )
-
-# create subsets
-lfo_sims_1sap <- lfo_sims %>% filter(is.na(B), M == 1)
-block_lfo_sims_1sap <- lfo_sims %>% filter(!is.na(B), M == 1)
-lfo_sims_4sap <- lfo_sims %>% filter(is.na(B), M == 4)
-block_lfo_sims_4sap <- lfo_sims %>% filter(!is.na(B), M == 4)
 ```
 
 Results of the 1-SAP simulations are visualized
@@ -557,7 +551,8 @@ positive bias in PSIS-LFO-CV. As expected, LOO-CV is a biased estimate of the
 in the time-series (see the lighter histograms in Figure \@ref(fig:1sap)).
 
 ```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
-lfo_sims_1sap %>% 
+lfo_sims %>% 
+  filter(is.na(B), M == 1) %>% 
   select(elpd_diff_lfo, elpd_diff_loo, model, tau) %>%
   gather("Type", "elpd_diff", elpd_diff_lfo, elpd_diff_loo) %>%
   ggplot(aes(x = elpd_diff, y = ..density.., fill = Type)) +
@@ -617,7 +612,8 @@ the number of observations predicted as each step (4 vs. 1) renders 4-SAP LFO-CV
 and LOO-CV incomparable.
 
 ```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
-lfo_sims_4sap %>% 
+lfo_sims %>% 
+  filter(is.na(B), M == 4) %>%
   select(elpd_diff_lfo, model, tau) %>%
   ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
   facet_grid(
@@ -1202,7 +1198,8 @@ lfo_sims %>%
 ```
 
 ```{r block1sap, fig.height=8, fig.cap="Simulation results of block 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The number of left-out future observations was set to $B = 10$."}
-block_lfo_sims_1sap %>% 
+lfo_sims %>% 
+  filter(!is.na(B), M == 1) %>% 
   select(elpd_diff_lfo, elpd_diff_loo, model, tau) %>%
   gather("Type", "elpd_diff", elpd_diff_lfo, elpd_diff_loo) %>%
   ggplot(aes(x = elpd_diff, y = ..density.., fill = Type)) +
@@ -1242,7 +1239,8 @@ models, which then naturally propagates into the higher variability we see in
 the PSIS-LFO-CV approximations.
 
 ```{r block4sap, fig.height=8, fig.cap="Simulation results of block 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The number of left-out future observations was set to $B = 10$."}
-block_lfo_sims_4sap %>% 
+lfo_sims %>% 
+  filter(!is.na(B), M == 4) %>% 
   select(elpd_diff_lfo, model, tau) %>%
   ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
   facet_grid(
