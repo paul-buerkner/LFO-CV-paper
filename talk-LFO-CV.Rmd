@@ -109,7 +109,7 @@ ggplot(preds, aes(x = year, y = Estimate)) +
 
 ## Leave-Future-Out Cross-Validation (LFO-CV)
 
-Perform M-step-ahead predictions (M-SAP)
+Perform M-step-ahead predictions (M-SAP) at observation $i$
 $$
 p(y_i, \ldots, y_{i + M - 1} \,|\, y_{1},...,y_{i-1}) =: 
 p(y_{i+1:M} \,|\, y_{1:i})
@@ -133,7 +133,7 @@ $$
 - $L$: minimal number of observation required for predictions
 -->
 
-## Approximate M-Step-Ahead predictions
+## Approximate M-Step-Ahead Predictions
 
 \begin{center}
 We are moving \textbf{backwards} in time!
@@ -347,7 +347,7 @@ lfo_sims %>%
   NULL 
 ```
 
-## Lake Huron Model: Pareto k estimates
+## Lake Huron Model: Pareto k Estimates
 
 ```{r}
 L <- 20
