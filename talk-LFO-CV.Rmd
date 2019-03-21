@@ -111,13 +111,13 @@ ggplot(preds, aes(x = year, y = Estimate)) +
 
 Perform M-step-ahead predictions (M-SAP) at observation $i$
 $$
-p(y_i, \ldots, y_{i + M - 1} \,|\, y_{1},...,y_{i-1}) =: 
+p(y_{i + 1}, \ldots, y_{i + M} \,|\, y_{1},...,y_{i}) =: 
 p(y_{i+1:M} \,|\, y_{1:i})
 $$
 
 Estimate expected M-SAP performance via LFO-CV
 $$
-{\rm ELPD}_{\rm LFO} = \sum_{i=L+1}^{N - M + 1} \log p(y_{i+1:M} \,|\, y_{1:i})
+{\rm ELPD}_{\rm LFO} = \sum_{i=L}^{N - M} \log p(y_{i+1:M} \,|\, y_{1:i})
 $$
 
 This requires fitting a separate model for each $i$

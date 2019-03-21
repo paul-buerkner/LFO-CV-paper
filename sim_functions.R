@@ -94,14 +94,13 @@ exact_lfo <- function(fit, M, L, B = NA, criterion = c("elpd", "rmse")) {
   }
   
   # compute exact LFO likelihoods
-  ids <- (N - M + 1):max(L + 1, 2)
   out <- rep(NA, N)
   conv <- vector("list", N)
   loglikm <- matrix(nrow = nsamples(fit), ncol = N)
-  for (i in ids) {
-    ioos <- 1:(i + M - 1)
-    oos <- i:(i + M - 1)
-    ind_rm <- i:min(i + B - 1, N)
+  for (i in (N - M):L) {
+    ioos <- 1:(i + M)
+    oos <- (i + 1):(i + M)
+    ind_rm <- (i + 1):min(i + B, N)
     newdf <- df
     if (max(ind_rm) < N) {
       # responses of the left-out block need to be coded as 
@@ -110,10 +109,10 @@ exact_lfo <- function(fit, M, L, B = NA, criterion = c("elpd", "rmse")) {
     } else {
       newdf <- newdf[-ind_rm, , drop = FALSE]
     }
-    fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
-    conv[[i]] <- convergence_summary(fit_i)
+    fit_star <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
+    conv[[i]] <- convergence_summary(fit_star)
     out[i] <- lfo_criterion(
-      fit_i, data = df[ioos, , drop = FALSE], oos = oos, 
+      fit_star, data = df[ioos, , drop = FALSE], oos = oos, 
       criterion = criterion
     )
   }
@@ -140,33 +139,28 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
   loglikm <- loglik <- matrix(nrow = nsamples(fit), ncol = N)
   out <- ks <- rep(NA, N)
   conv <- vector("list", N)
-  fit_i <- fit
-  # observations to predict
-  ids <- (N - M + 1):(L + 1)
+  fit_star <- fit
   # last observation included in the model fitting
-  i_refit <- N
+  i_star <- N
   refits <- numeric(0)
-  # no isolated predictions of the last M - 1 observations
-  ind_init <- seq_pos(N - M + 2, N)
-  if (length(ind_init)) {
-    loglik[, ind_init] <- log_lik(fit_i)[, ind_init, drop = FALSE] 
-  }
-  for (i in ids) {
-    ioos <- 1:(i + M - 1)
-    oos <- i:(i + M - 1)
-    ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
+  # no isolated predictions of the last M observations
+  loglik[, (N - M + 1):N] <- log_lik(fit_star)[, (N - M + 1):N, drop = FALSE] 
+  for (i in (N - M):L) {
+    ioos <- 1:(i + M)
+    oos <- (i + 1):(i + M)
+    ll <- log_lik(fit_star, newdata = df[ioos, , drop = FALSE], oos = oos)
     loglik[, i] <- ll[, i]
     # observations over which to perform importance sampling
-    ilr1 <- i:min(i + B - 1, i_refit)
+    ilr1 <- (i + 1):min(i + B, i_star)
     logratio <- sum_log_ratios(loglik, ilr1)
     if (B < Inf) {
       # in the block version some observations need to be added back again
-      ilr2 <- seq_pos(max(i + B, i_refit + 1), min(i_refit + B, N))
+      ilr2 <- seq_pos(max(i + B + 1, i_star + 1), min(i_star + B, N))
       if (length(ilr2)) {
         # observations in the left-out block are modeled as missing
-        ind_B <- i:(i + B - 1)
+        ind_B <- (i + 1):(i + B)
         subdf <- df[seq_len(max(ilr2)), , drop = FALSE]
-        ll_after_block <- log_lik(fit_i, newdata = subdf, oos = ind_B)
+        ll_after_block <- log_lik(fit_star, newdata = subdf, oos = ind_B)
         logratio <- logratio - sum_log_ratios(ll_after_block, ilr2) 
       }
     }
@@ -174,10 +168,10 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
     k <- pareto_k_values(psis_part)
     ks[i] <- k
     if (k > k_thres) {
-      # refit the model based on the first i - 1 observations
-      i_refit <- i - 1
+      # refit the model based on the first i observations
+      i_star <- i
       refits <- c(refits, i)
-      ind_rm <- i:min(i + B - 1, N)
+      ind_rm <- (i + 1):min(i + B, N)
       newdf <- df
       if (max(ind_rm) < N) {
         # responses of the left-out block need to be coded as 
@@ -186,19 +180,19 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
       } else {
         newdf <- newdf[-ind_rm, , drop = FALSE]
       }
-      fit_i <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
-      conv[[i]] <- convergence_summary(fit_i)
+      fit_star <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
+      conv[[i]] <- convergence_summary(fit_star)
       # perform exact LFO for the ith observation
-      ll <- log_lik(fit_i, newdata = df[ioos, , drop = FALSE], oos = oos)
+      ll <- log_lik(fit_star, newdata = df[ioos, , drop = FALSE], oos = oos)
       loglik[, i] <- ll[, i]
       out[i] <- lfo_criterion(
-        fit_i, data = df[ioos, , drop = FALSE], 
+        fit_star, data = df[ioos, , drop = FALSE], 
         oos = oos, criterion = criterion
       )
     } else {
       # PSIS approximate LFO is possible
       out[i] <- lfo_criterion(
-        fit_i, data = df[ioos, , drop = FALSE], oos = oos,
+        fit_star, data = df[ioos, , drop = FALSE], oos = oos,
         criterion = criterion, psis = psis_part
       )
     }

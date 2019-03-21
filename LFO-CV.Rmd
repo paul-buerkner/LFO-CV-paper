@@ -161,7 +161,7 @@ Assume we have a time series of observations $y = (y_1, y_2, \ldots, y_N)$
 and let $L$ be the _minimum_ number of observations from the series that
 we will require before making predictions for future data. Depending on the
 application and how informative the data are, it may not be possible to make
-reasonable predictions for $y_{i}$ based on $(y_1, \dots, y_{i-1})$ until $i$ is
+reasonable predictions for $y_{i+1}$ based on $(y_1, \dots, y_{i})$ until $i$ is
 large enough so that we can learn enough about the time series to predict future
 observations. Setting $L=10$, for example, means that we will only assess
 predictive performance starting with observation $y_{11}$, so that we
@@ -172,18 +172,18 @@ predictive densities
 
 \begin{equation}
 p(y_{i+1:M} \,|\, y_{1:i}) = 
-  p(y_i, \ldots, y_{i + M - 1} \,|\, y_{1},...,y_{i-1}) 
+  p(y_{i+1}, \ldots, y_{i + M} \,|\, y_{1},...,y_{i}) 
 \end{equation}
 
-for each $i \in \{L + 1, \ldots, N - M + 1\}$, where we use 
-$y_{i+1:M} = (y_i, \ldots, y_{i + M - 1})$ and $y_{1:i} = (y_{1}, \ldots, y_{i-1})$ 
+for each $i \in \{L, \ldots, N - M\}$, where we use 
+$y_{i+1:M} = (y_{i+1}, \ldots, y_{i + M})$ and $y_{1:i} = (y_{1}, \ldots, y_{i})$ 
 to shorten the notation. As a global measure of predictive accuracy, we
 can use the expected log posterior density [ELPD; @vehtari2017loo], which, 
 for M-SAP, can be defined as
 
 \begin{equation}
 \label{ELPD}
-{\rm ELPD} = \sum_{i=L+1}^{N - M + 1} 
+{\rm ELPD} = \sum_{i=L}^{N - M} 
   \int p_t(\tilde{y}_{i+1:M}) \log p(\tilde{y}_{i+1:M} \,|\, y_{1:i})
   \, {\rm d} \, \tilde{y}_{i+1:M}.
 \end{equation}
@@ -193,7 +193,7 @@ process for new data $\tilde{y}_{i+1:M}$. As these true data generating processe
 are unknown, we approximate the ELPD using LFO-CV, which leads to
  
 \begin{equation}
-{\rm ELPD}_{\rm LFO} = \sum_{i=L+1}^{N - M + 1} \log p(y_{i+1:M} \,|\, y_{1:i}).
+{\rm ELPD}_{\rm LFO} = \sum_{i=L}^{N - M} \log p(y_{i+1:M} \,|\, y_{1:i}).
 \end{equation}
 
 The quantities $p(y_{i+1:M} \,|\, y_{1:i})$ can be computed with the help of the
@@ -218,7 +218,7 @@ p(y \,|\, \theta) = \prod_{n=1}^N p(y_n \,|\, \theta).
 In this case, $p(y_{i+1:M} \,|\, y_{1:i}, \theta)$ reduces to 
 \begin{equation}
 p(y_{i+1:M} \,|\, y_{1:i}, \theta) =p(y_{i+1:M} \,|\, \theta) = 
-\prod_{n = i}^{i + M -1} p(y_n \,|\, \theta),
+\prod_{n = i+1}^{i + M} p(y_n \,|\, \theta),
 \end{equation}
 due to the assumption of conditional independence between $y_{i+1:M}$ and $y_{1:i}$
 given $\theta$. Cross-validation for non-factorizable models, which 
@@ -310,7 +310,7 @@ threshold is set to $0.7$ when performing PSIS LOO-CV [@vehtari2017loo;@loo2018]
 ### PSIS applied to $M$-step-ahead predictions
 
 We now turn back to our task of performing $M$-step-ahead predictions for
-time-series models. Starting with $i = N - M + 1$, we approximate each
+time-series models. Starting with $i = N - M$, we approximate each
 $p(y_{i+1:M} \,|\, y_{1:i})$ via
 
 \begin{equation}
@@ -337,28 +337,28 @@ with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
 above. The index set $J_i$ contains the indices of all observations which are
 part of the data for the model being fitted but not for the model whose
 predictive performance we are trying to approximate. That is, for the starting
-value $i = N - M + 1$, we have $J_i = \{i, \ldots, N\}$. This approach to
+value $i = N - M$, we have $J_i = \{i+1, \ldots, N\}$. This approach to
 computing importance ratios is a generalization of the approach used in
 PSIS-LOO-CV, where only a single observation is left out at a time and thus 
 $J_i = \{i\}$ for all $i$.
 
-Starting from $i = N - M + 1$, we gradually *decrease* $i$ by $1$ (i.e., we move
+Starting from $i = N - M$, we gradually *decrease* $i$ by $1$ (i.e., we move
 backwards in time) and repeat the process. At some observation $i$, the
 variability of the importance ratios $r_i^{(s)}$ will become too large and
 importance sampling fails. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
 distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
-then do we refit the model using only observations before $i^\star_1$ and then
-restart the process. Until the next refit, we have $J_i = \{i, \ldots, i^\star_1
--1 \}$ for $i < i^\star_1$, as the refitted model only contains the observations
-up to index $N^\star_1 = i^\star_1 - 1$. An illustration of this 
-procedure is shown in Figure \@ref(fig:vis-msap).
+then do we refit the model using only observations up to $i^\star_1$ and then
+restart the process. Until the next refit, we thus have $J_i = \{i+1, \ldots,
+i^\star_1 \}$ for $i < i^\star_1$, as the refitted model only contains the
+observations up to index $i^\star_1$. An illustration of this procedure is shown
+in Figure \@ref(fig:vis-msap).
 
 In some cases we may only need to refit once and in other cases we will find a
 value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We repeat the refitting as many times as
-is required (only if $k > \tau$) until we arrive at $i = L + 1$. Recall that $L$
+is required (only if $k > \tau$) until we arrive at $i = L$. Recall that $L$
 is the minimum number of observations we have deemed acceptable for making
 predictions (setting $L=0$ means the first data point will be predicted only
 based on the prior). A detailed description of the algorithm in the form of
@@ -366,7 +366,7 @@ pseudo code is provided in Appendix A. If the data contains multiple independent
 time-series, the algorithm should be applied to each of the time-series
 separately, and the resulting ELPD values can be summed up afterwards.
 
-```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out all future values. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
+```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out all future values. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
 status_levels <- c("included", "left out", "left out (PSIS)")
 df <- data.frame(
   obs = rep(1:9, 3),
@@ -973,9 +973,8 @@ comments and discussions on earlier versions of this paper.
 
 ## Appendix A: Pseudo code for PSIS LFO-CV {-}
 
-The R flavored pseudo code shown below provides a description of the proposed
-PSIS-LFO-CV algorithm when leaving out all future values. The actual R code can
-be found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
+The R flavored pseudo code below provides a description of the proposed
+PSIS-LFO-CV algorithm when leaving out all future values. See https://github.com/paul-buerkner/LFO-CV-paper for the actual R code.
 
 ```{r, tidy=FALSE, eval=FALSE, echo = TRUE}
 PSIS_LFO_CV = function(model, data, M, L, tau) {
@@ -991,25 +990,26 @@ PSIS_LFO_CV = function(model, data, M, L, tau) {
   S = number_of_draws(model)
   LL_matrix = matrix(nrow = S, ncol = N)
   out = vector(length = N)
-  model_refit = model
+  model_star = model
   i_star = N
-  for (i in (N - M + 1):(L + 1)) {
-    LL = log_likelihood(model_refit, data = data[1:(i + M - 1), ])
+  LL = log_likelihood(model_star, data = data)
+  LL_matrix[, (N - M + 1):N] = LL[, (N - M + 1):N]
+  for (i in (N - M):L) {
+    LL = log_likelihood(model_star, data = data[1:(i + M), ])
     LL_matrix[, i] = LL[, i]
-    PSIS_object = PSIS(-sum_per_row(LL_matrix[, i:i_star]))
+    PSIS_object = PSIS(-sum_per_row(LL_matrix[, (i+1):i_star]))
     k = pareto_k_values(PSIS_object)
     if (k > tau) {
       # refitting the model is necessary
-      i_star = i - 1
-      model_refit = update(model_refit, data = data[1:(i - 1), ])
-      # perform exact LFO for the ith observation
-      LL = log_likelihood(model_refit, data = data[1:(i + M - 1), ])
+      i_star = i
+      model_star = update(model_star, data = data[1:i, ])
+      LL = log_likelihood(model_star, data = data[1:(i + M), ])
       LL_matrix[, i] = LL[, i]
-      out[i] = log_mean_exp(sum_per_row(LL[, i:(i + M - 1)]))
+      out[i] = log_mean_exp(sum_per_row(LL[, (i + 1):(i + M)]))
     } else {
       # PSIS approximation is possible
       LW = log_weights(PSIS_object)
-      out[i] = log_sum_exp(LW + sum_per_row(LL[, i:(i + M - 1)]))
+      out[i] = log_sum_exp(LW + sum_per_row(LL[, (i + 1):(i + M)]))
     }
   }
   return(sum(out))
@@ -1061,29 +1061,27 @@ right after the left-out block are included in the current model but not in the 
 at the time the approximating model was (re-)fit). A visualisation of this
 situation is provided in Figure \@ref(fig:vis-block-msap). 
 
-More formally, let $\overline{J}_i$ be the index set of observations that are
+More formally, let $\tilde{J}_i$ be the index set of observations that are
 missing in the approximating model at the time of predicting observation $i$. 
 We find
 
 \begin{equation}
-\overline{J}_i = \{ \max(i + B, N^\star + 1), \ldots, \min(N^\star + B, N) \}
+\tilde{J}_i = \{ \max(i + B + 1, i^\star + 1), \ldots, \min(i^\star + B, N) \}
 \end{equation}
 
-if $\max(i + B, N^\star + 1) \leq \min(N^\star + B, N)$ and $\overline{J}_i =
-\emptyset$ otherwise. As above, $N^\star$ refers to the largest observation
-included in the model fitting ($N^\star = i^\star - 1$, where $i^*$ is the index
-of the latest refit). The raw importance ratios $r_i^{(s)}$ for each posterior
-draw $s$ are then computed as
+if $\max(i + B + 1, i^\star + 1) \leq \min(i^\star + B, N)$ and 
+$\tilde{J}_i = \emptyset$ otherwise. The raw importance ratios
+$r_i^{(s)}$ for each posterior draw $s$ are then computed as
 
 \begin{equation}
-r_i^{(s)} \propto \frac{\prod_{j \in \overline{J}_i} p(y_j \,|\, \,\theta^{(s)})}
+r_i^{(s)} \propto \frac{\prod_{j \in \tilde{J}_i} p(y_j \,|\, \,\theta^{(s)})}
 {\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})}
 \end{equation}
 
 before they are stabilized and further processed using PSIS (see Section
 \@ref(approximate-MSAP)).
 
-```{r vis-block-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out a block of $B = 3$ future values. Predicted observations are indicated by **X**. Observation in the left out block are indicated by **B**. In the shown example, the model was last refit at the $i^\\star = 5$th observation."}
+```{r vis-block-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out a block of $B = 3$ future values. Predicted observations are indicated by **X**. Observation in the left out block are indicated by **B**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
 status_levels <- c("included", "included (PSIS)", "left out", "left out (PSIS)")
 df <- data.frame(
   obs = rep(1:9, 3),
