@@ -618,7 +618,7 @@ cat("Using threshold ", k_thres,
     ", model was refit ", length(refits), 
     " times, at observations", refits)
 
-plot_ks(ks, (N - M):L)
+plot_ks(ks, (N - M + 1):(L + 1))
 ```
 
 The approximate ELPD computed for the 4-SAP case is not as close to its exact
