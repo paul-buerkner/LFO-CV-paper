@@ -144,12 +144,14 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
   i_star <- N
   refits <- numeric(0)
   # no isolated predictions of the last M observations
-  loglik[, (N - M + 1):N] <- log_lik(fit_star)[, (N - M + 1):N, drop = FALSE] 
+  if (M > 1) {
+    loglik[, (N - M + 2):N] <- log_lik(fit_star)[, (N - M + 2):N, drop = FALSE]  
+  }
   for (i in (N - M):L) {
     ioos <- 1:(i + M)
     oos <- (i + 1):(i + M)
     ll <- log_lik(fit_star, newdata = df[ioos, , drop = FALSE], oos = oos)
-    loglik[, i] <- ll[, i]
+    loglik[, i + 1] <- ll[, i + 1]
     # observations over which to perform importance sampling
     ilr1 <- (i + 1):min(i + B, i_star)
     logratio <- sum_log_ratios(loglik, ilr1)
@@ -184,7 +186,7 @@ approx_lfo <- function(fit, M, L, B = NA, k_thres = 0.6,
       conv[[i]] <- convergence_summary(fit_star)
       # perform exact LFO for the ith observation
       ll <- log_lik(fit_star, newdata = df[ioos, , drop = FALSE], oos = oos)
-      loglik[, i] <- ll[, i]
+      loglik[, i + 1] <- ll[, i + 1]
       out[i] <- lfo_criterion(
         fit_star, data = df[ioos, , drop = FALSE], 
         oos = oos, criterion = criterion
