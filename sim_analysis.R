@@ -1,5 +1,6 @@
 library(tidyverse)
-colors <- unname(unlist(bayesplot::color_scheme_get()[c(6, 2)]))
+# colors <- unname(unlist(bayesplot::color_scheme_get()[c(6, 4, 2)]))
+colors <- brms:::viridis6()[c(6, 2, 4)]
 # theme_set(bayesplot::theme_default(base_family = "sans"))
 theme_set(theme_bw())
 
@@ -10,16 +11,21 @@ mlevels <- c(
 )
 lfo_sims <- read_rds("results/lfo_sims.rds") %>%
   as_tibble() %>%
+  filter(lengths(res) > 0) %>%
   mutate(
     model = factor(model, levels = mlevels),
     k_thres = paste0("k = ", k_thres),
     elpd_loo = map_dbl(res, ~ .$loo_cv$estimates["elpd_loo", 1]),
     elpd_exact_lfo = map_dbl(res, ~ .$lfo_exact_elpd[1]),
-    elpd_approx_lfo = map_dbl(res, ~ .$lfo_approx_elpd[1]),
-    elpd_diff_lfo = elpd_approx_lfo - elpd_exact_lfo,
+    elpd_approx_bw_lfo = map_dbl(res, ~ .$lfo_approx_bw_elpd[1]),
+    elpd_approx_fw_lfo = map_dbl(res, ~ .$lfo_approx_fw_elpd[1]),
+    elpd_diff_bw_lfo = elpd_approx_bw_lfo - elpd_exact_lfo,
+    elpd_diff_fw_lfo = elpd_approx_fw_lfo - elpd_exact_lfo,
     elpd_diff_loo = elpd_loo - elpd_exact_lfo,
-    nrefits = lengths(map(res, ~ attr(.$lfo_approx_elpds, "refits"))),
-    rel_nrefits = nrefits / (N - L)
+    nrefits_bw = lengths(map(res, ~ attr(.$lfo_approx_bw_elpds, "refits"))),
+    nrefits_fw = lengths(map(res, ~ attr(.$lfo_approx_fw_elpds, "refits"))),
+    rel_nrefits_bw = nrefits_bw / (N - L),
+    rel_nrefits_fw = nrefits_fw / (N - L)
   )
 
 
@@ -29,22 +35,27 @@ lfo_res <- lfo_sims %>% filter(is.na(B), M == 1)
 lfo_res %>%
   group_by(model, k_thres) %>%
   summarise(
-    mean_diff_lfo = mean(elpd_diff_lfo), 
+    mean_diff_bw_lfo = mean(elpd_diff_bw_lfo), 
+    mean_diff_fw_lfo = mean(elpd_diff_fw_lfo), 
     mean_diff_loo = mean(elpd_diff_loo),
-    sd_diff_lfo = sd(elpd_diff_lfo), 
+    sd_diff_bw_lfo = sd(elpd_diff_bw_lfo), 
+    sd_diff_fw_lfo = sd(elpd_diff_fw_lfo), 
     sd_diff_loo = sd(elpd_diff_loo)
   )
-
 # plot differences to exact LFO
 lfo_res %>% 
-  select(elpd_diff_lfo, elpd_diff_loo, model, k_thres) %>%
-  gather("Type", "elpd_diff", elpd_diff_lfo, elpd_diff_loo) %>%
+  select(starts_with("elpd_diff"), model, k_thres) %>%
+  gather("Type", "elpd_diff", starts_with("elpd_diff")) %>%
   ggplot(aes(x = elpd_diff, y = ..density.., fill = Type)) +
   facet_grid(model ~ k_thres, scales = "free_y") +
   geom_histogram(alpha = 0.7) +
   scale_fill_manual(
     values = colors,
-    labels = c("Approximate LFO-CV", "Approximate LOO-CV")
+    labels = c(
+      "PSIS-LFO-CV (backward)", 
+      "PSIS-LFO-CV (forward)", 
+      "PSIS-LOO-CV"
+    )
   ) +
   labs(x = 'Difference to exact LFO-CV', y = "Density") +
   geom_vline(xintercept = 0, linetype = 2) +
@@ -56,42 +67,66 @@ ggsave("plots/LFO_1SAP_AR_models_ELPD.jpeg", width = 7, height = 6)
 
 # plot number of refits
 lfo_res %>% 
-  ggplot(aes(x = nrefits, y = ..density..)) +
+  select(starts_with("nrefits"), model, k_thres) %>%
+  gather("Type", "nrefits", starts_with("nrefits")) %>%
+  ggplot(aes(x = nrefits, y = ..density.., fill = Type)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = nrefits),
     linetype = 2,
     data = lfo_res %>%
-      group_by(model, k_thres) %>%
+      select(starts_with("nrefits"), model, k_thres) %>%
+      gather("Type", "nrefits", starts_with("nrefits")) %>%
+      group_by(model, k_thres, Type) %>%
       summarise(nrefits = mean(nrefits))
   ) +
-  geom_histogram(fill = colors[1]) +
+  geom_histogram(alpha = 0.7) +
+  scale_fill_manual(
+    values = colors[1:2],
+    labels = c(
+      "PSIS-LFO-CV (backward)", 
+      "PSIS-LFO-CV (forward)"
+    )
+  ) +
   xlab("Number of refits based on N = 200 and L = 25") +
   ylab("Count") +
-  theme_bw()
+  theme_bw() + 
+  theme(legend.position = "bottom")
 
 ggsave("plots/LFO_1SAP_AR_models_nrefits.jpeg", width = 6, height = 6)
 
 # plot relative number of refits
 lfo_res %>% 
-  ggplot(aes(x = rel_nrefits, y = ..density..)) +
+  select(starts_with("rel_nrefits"), model, k_thres) %>%
+  gather("Type", "rel_nrefits", starts_with("rel_nrefits")) %>%
+  ggplot(aes(x = rel_nrefits, y = ..density.., fill = Type)) +
   facet_grid(model ~ k_thres) + 
   geom_vline(
     aes(xintercept = rel_nrefits),
     linetype = 2,
     data = lfo_res %>%
-      group_by(model, k_thres) %>%
+      select(starts_with("rel_nrefits"), model, k_thres) %>%
+      gather("Type", "rel_nrefits", starts_with("rel_nrefits")) %>%
+      group_by(model, k_thres, Type) %>%
       summarise(rel_nrefits = mean(rel_nrefits))
   ) +
-  geom_histogram(fill = colors[1]) +
+  geom_histogram(alpha = 0.7) +
+  scale_fill_manual(
+    values = colors[1:2],
+    labels = c(
+      "PSIS-LFO-CV (backward)", 
+      "PSIS-LFO-CV (forward)"
+    )
+  ) +
   xlab("Relative number of refits based on N = 200 and L = 25") +
   ylab("Count") +
-  theme_bw()
+  theme_bw() + 
+  theme(legend.position = "bottom")
 
 ggsave("plots/LFO_1SAP_AR_models_rel_refits.jpeg", width = 6, height = 6)
 
 
-
+# TODO: update all plots below
 # block-LFO-1SAP plots ------------------------------------------------------------
 block_lfo_res <- lfo_sims %>% 
   filter(!is.na(B), M == 1)
