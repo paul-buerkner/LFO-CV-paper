@@ -71,7 +71,6 @@ source("sim_functions.R")
 
 # set ggplot theme
 theme_set(bayesplot::theme_default())
-colors <- unname(unlist(bayesplot::color_scheme_get()[c(6, 2)]))
 
 # set rstan options
 rstan::rstan_options(auto_write = TRUE)
@@ -207,22 +206,32 @@ p(y_{i+1:M} \,| \, y_{1:i}) =
     p(\theta\,|\,y_{1:i}) \, {\rm d} \theta. 
 \end{equation}
 
-For factorizable models, the response values are conditionally 
-independent given the parameters, and the likelihood can be written 
+Most time-series models have a non-factorizable likelihood, that is, $y_{i+1:M}$
+depends on $y_{1:i}$ even after conditioning on $\theta$. As such, we cannot
+simplify the integrand in (\ref{Lpred}) as would have been possible for
+factorizable likelihoods. Instead, we always need to take $y_{1:i}$ into account
+when computing the predictive density of $y_{i+1:M}$ (see
+@buerkner:non-factorizable for more discussion on computing predictive densities
+of non-factorizable models).
+
+<!--
+For factorizable models, the response values are conditionally
+independent given the parameters, and the likelihood can be written
 in the factorized form
 
 \begin{equation}
 p(y \,|\, \theta) = \prod_{n=1}^N p(y_n \,|\, \theta).
 \end{equation}
 
-In this case, $p(y_{i+1:M} \,|\, y_{1:i}, \theta)$ reduces to 
+In this case, $p(y_{i+1:M} \,|\, y_{1:i}, \theta)$ reduces to
 \begin{equation}
-p(y_{i+1:M} \,|\, y_{1:i}, \theta) =p(y_{i+1:M} \,|\, \theta) = 
+p(y_{i+1:M} \,|\, y_{1:i}, \theta) =p(y_{i+1:M} \,|\, \theta) =
 \prod_{n = i+1}^{i + M} p(y_n \,|\, \theta),
 \end{equation}
 due to the assumption of conditional independence between $y_{i+1:M}$ and $y_{1:i}$
-given $\theta$. Cross-validation for non-factorizable models, which 
+given $\theta$. Cross-validation for non-factorizable models, which
 does not make this assumption, is discussed in @buerkner:non-factorizable.
+-->
 
 In practice, we will not be able to directly solve the integral in 
 (\@ref(Lpred)), but instead have to use Monte-Carlo methods to approximate it.
@@ -232,18 +241,25 @@ $p(y_{i+1:M} | y_{1:i})$ as
 
 \begin{equation}
 p(y_{i+1:M} \,|\, y_{1:i}) \approx \frac{1}{S}
-\sum_{s=1}^S p(y_{i+1:M} \,|\, y_{1:i}, \theta_{1:i}^{(s)}),
+\sum_{s=1}^S p(y_{i+1:M} \,|\, y_{1:i}, \theta_{1:i}^{(s)}).
 \end{equation}
 
-which further simplifies for factorizable models as shown above.
+In this paper, we focus on the ELPD as a measure of predictive accuracy.
+However, $M$-SAP and its approximations introduced in the following may as well
+be based on other global measures of accuracy such as the root mean squared
+error (RMSE) or the median absolute deviation (MAD). Our computer code provided
+on GitHub (https://github.com/paul-buerkner/LFO-CV-paper) is modularized to
+support arbitrary measures of accuracy as long as the can be represented in a
+pointwise manner, that is, as increments per observation.
+
 
 ## Approximate $M$-step-ahead predictions {#approximate-MSAP}
 
 The above equations include the posterior distributions from many
 different fits of the model to different subsets of the data. To obtain
 the predictive density $p(y_{i+1:M} \,|\, y_{1:i})$, a model is fit to
-only the first $i-1$ data points, and we will need to do this for every value of
-$i$ under consideration (i.e., all $i \in \{L + 1, \ldots, N - M + 1\}$).
+only the first $i$ data points, and we will need to do this for every value of
+$i$ under consideration (i.e., all $i \in \{L, \ldots, N - Mlog_PSIS_weights\}$).
 Below, we will present a new algorithm to reduce the number of models that need
 to be fit for the purpose of obtaining each of the densities $p(y_{i+1:M} \,|\,
 y_{1:i})$. This algorithm relies in a central manner on Pareto smoothed
@@ -310,8 +326,12 @@ threshold is set to $0.7$ when performing PSIS LOO-CV [@vehtari2017loo;@loo2018]
 ### PSIS applied to $M$-step-ahead predictions
 
 We now turn back to our task of performing $M$-step-ahead predictions for
-time-series models. Starting with $i = N - M$, we approximate each
-$p(y_{i+1:M} \,|\, y_{1:i})$ via
+time-series models. First, we refit the model using the first $L$ observations
+of the time-series, and then perform an exact $M$-step-ahead prediction step for $p(y_{L+1:M} \,|\, y_{1:L})$. 
+Recall that $L$ is the minimum number of observations we have deemed
+acceptable for making predictions (setting $L=0$ means the first data point will
+be predicted only based on the prior). Next, starting with $i = L + 1$, we
+approximate each $p(y_{i+1:M} \,|\, y_{1:i})$ via
 
 \begin{equation}
  p(y_{i+1:M} \,|\, y_{1:i}) \approx
@@ -320,75 +340,72 @@ $p(y_{i+1:M} \,|\, y_{1:i})$ via
 \end{equation}
 
 where $w_i^{(s)}$ are the PSIS weights and $\theta^{(s)}$ are draws from the
-posterior distribution based on _all_ observations. To obtain $w_i^{(s)}$, we
-first compute the raw importance ratios
+posterior distribution based on the initial $L$ observations. 
+To obtain $w_i^{(s)}$, we first compute the raw importance ratios
 
 \begin{equation}
 r_i^{(s)} = r_i(\theta^{(s)}) = \frac{f_i(\theta^{(s)})}{g(\theta^{(s)})} 
 \propto \frac{
-\prod_{j \in J \backslash J_i} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
-}{
 \prod_{j \in J} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+}{
+\prod_{j \in J \backslash J_i} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
 }
-= \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
+= \prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)}),
 \end{equation}
 
 with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
 above. The index set $J_i$ contains the indices of all observations which are
-part of the data for the model being fitted but not for the model whose
-predictive performance we are trying to approximate. That is, for the starting
-value $i = N - M$, we have $J_i = \{i+1, \ldots, N\}$. This approach to
-computing importance ratios is a generalization of the approach used in
-PSIS-LOO-CV, where only a single observation is left out at a time and thus 
-$J_i = \{i\}$ for all $i$.
+part of the data for the model whose predictive performance we are trying to
+approximate but not for the actually fitted model. Until a refit becomes
+necessary (see below), we will have $J_i = \{L + 1, \ldots, i\}$.
+That is, for the starting value $i = L + 1$, we simply have 
+$J_i = \{i\}$.
 
-Starting from $i = N - M$, we gradually *decrease* $i$ by $1$ (i.e., we move
-backwards in time) and repeat the process. At some observation $i$, the
+Continuing with the next observation, we gradually increase $i$ by $1$ (i.e., we move
+forward in time) and repeat the process. At some observation $i$, the
 variability of the importance ratios $r_i^{(s)}$ will become too large and
 importance sampling fails. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
 distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
 then do we refit the model using only observations up to $i^\star_1$ and then
-restart the process. Until the next refit, we thus have $J_i = \{i+1, \ldots,
-i^\star_1 \}$ for $i < i^\star_1$, as the refitted model only contains the
-observations up to index $i^\star_1$. An illustration of this procedure is shown
-in Figure \@ref(fig:vis-msap).
+restart the process. Until the next refit, we thus have 
+$J_i = \{i^\star_1+1, \ldots, i \}$ for $i^\star_1 < i$, as the 
+refitted model only contains the observations up to index $i^\star_1$. An
+illustration of this procedure is shown in Figure \@ref(fig:vis-msap).
 
 In some cases we may only need to refit once and in other cases we will find a
 value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We repeat the refitting as many times as
-is required (only if $k > \tau$) until we arrive at $i = L$. Recall that $L$
-is the minimum number of observations we have deemed acceptable for making
-predictions (setting $L=0$ means the first data point will be predicted only
-based on the prior). A detailed description of the algorithm in the form of
+is required (only if $k > \tau$) until we arrive at $i = N - M$. 
+A detailed description of the algorithm in the form of
 pseudo code is provided in Appendix A. If the data contains multiple independent
 time-series, the algorithm should be applied to each of the time-series
 separately, and the resulting ELPD values can be summed up afterwards.
 
-```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions leaving out all future values. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
-status_levels <- c("included", "left out", "left out (PSIS)")
+```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
+status_levels <- c("included", "included (PSIS)", "left out")
 df <- data.frame(
   obs = rep(1:9, 3),
   i = factor(rep(3:5, each = 9)),
   Status = c(
-    rep("included", 2), rep("left out (PSIS)", 2), rep("left out", 5),
-    rep("included", 3), rep("left out (PSIS)", 1), rep("left out", 5),
-    rep("included", 4), rep("left out", 5)
+    rep("included", 4), rep("left out", 5),
+    rep("included", 4), rep("included (PSIS)", 1), rep("left out", 4),
+    rep("included", 4), rep("included (PSIS)", 2), rep("left out", 3)
   )
 ) %>%
   mutate(Status = factor(Status, levels = status_levels))
 
 msap_colors <- c(
   bayesplot::color_scheme_get("viridis")$light,
-  bayesplot::color_scheme_get("viridis")$dark,
-  bayesplot::color_scheme_get("viridis")$mid_highlight
+  bayesplot::color_scheme_get("viridis")$light_highlight,
+  bayesplot::color_scheme_get("viridis")$dark
 )
 
 ggplot(df, aes(obs, i, fill = Status)) +
   geom_tile(height = 0.9, width = 1, col = "black") +
   annotate(
-    'text', x = 3:5, y = c(1, 2, 3), 
+    'text', x = 5:7, y = c(1, 2, 3), 
     label = "X", parse = TRUE, 
     size = 10, color = "white"
   ) +
@@ -407,18 +424,41 @@ performing exact cross-validation of Bayesian models, almost all of the
 computational time is spent fitting models, while the time needed to compute
 predictions is negligible in comparison. That is, a reduction in the number of
 refits essentially implies a proportional reduction in the overall time required
-for cross-validation of Bayesian models.
+for cross-validation of Bayesian models. 
 
 For the PSIS-LFO-CV algorithm introduced in this paper, we can expect an
 appropriate threshold to be somewhere between $0.5 \leq \tau \leq 0.7$. It is
 unlikely to be as high as the $\tau = 0.7$ default used for PSIS-LOO-CV because
 there will be more dependence in the errors when doing PSIS-LFO-CV. If there is
 a large error when leaving out the $i$th observation, then there is likely to
-also be a large error when leaving out observations $i, i-1, i-2, \ldots$ until
+also be a large error when leaving out observations $i, i+1, i+2, \ldots$ until
 a refit is performed. That is, highly influential observations corresponding to
 a large $k$ estimate are likely to have stronger effects on the total estimate
 for LFO-CV than for LOO-CV. We will come back to the issue of setting
 appropriate thresholds in Section \@ref(simulations).
+
+The above described algorithm has some similarities with sequential Monte Carlo
+(SMC), also known as partical or Monte Carlo filtering [e.g., @gordon1993;
+@kitagawa1996; @andrieu2010]. When applying SMC to state space models, we move
+forward in time and use importance sampling to approximate the current state
+using the information in the preciding states [@kitagawa1996; @andrieu2010]. The
+focus of SMC in such a context is the estimation of a model's posterior
+distribution (or certain parts of it), whereas, in our approach, we focus on the
+its predictive performance. Further, we apply a full recomputation of the model
+via Markov chain Monte Carlo (MCMC) once Pareto-smoothed importance sampling
+fails [see @andrieu2010 for an estimation algorithm combining SMC and
+MCMC to estimate state space models].
+
+Instead of moving forward in time, it is also possible to move backwards. When
+performing this backward PSIS-LFO-CV, we approximate the target posterior
+by means of a posterior based on more observations and, as such, use a proposal
+distribution which is narrower than the target distribution. This may lead to
+highly influential importance weights more often than when using a proposal
+which is wider than the target distribution as is the case in the forward
+PSIS-LFO-CV described above. As detailed in Appendix B, moving backwards indeed
+requires more refits than moving forward without a compensating increase in
+accuracy. For this reason, we favor the forward over the backward procedure 
+and only describe the latter in Appendix B.
 
 # Simulations {#simulations}
 
@@ -435,6 +475,7 @@ quadratic terms and/or autoregressive terms of order 2 (see Figure
 
 In all cases the time-series consisted of $N = 200$ observations and the minimal
 number of observations required before make predictions was set to $L = 25$.
+We ran $T = 100$ simulation trials per condition.
 
 ```{r, include = FALSE}
 seed <- 1234
@@ -510,75 +551,106 @@ processing. The full code and all results are available on Github (https://githu
 ## Results {#sim_results}
 
 ```{r}
+# extractor helper functions
+get_elpd <- function(x) {
+  summarize_elpds(x)[1]
+}
+get_refits <- function(x) {
+  sum(attr(x, "refits"), na.rm = TRUE)
+}
+
+# pretty factor labels
 mlevels <- c(
   "constant", "linear", "quadratic",
   "AR2-only", "AR2-linear", "AR2-quadratic"
 )
 tau_levels <- TeX(paste0("$\\tau$ = ", c(0.5, 0.6, 0.7)))
+
+elpd_colors <- c(
+  loo = bayesplot::color_scheme_get("viridis")$mid,
+  lfo_bw = bayesplot::color_scheme_get("viridis")$light,
+  lfo_fw = bayesplot::color_scheme_get("viridis")$dark,
+  lfo_cb = bayesplot::color_scheme_get("viridis")$mid
+)
+
+# data preparation
 lfo_sims <- read_rds("results/lfo_sims.rds") %>%
   as_tibble() %>%
+  filter(lengths(res) > 0) %>%
   mutate(
     model = factor(model, levels = mlevels),
     tau = factor(k_thres, labels = tau_levels),
+    # compute sum of pointwise ELPD values
     elpd_loo = map_dbl(res, ~ .$loo_cv$estimates["elpd_loo", 1]),
-    elpd_exact_lfo = map_dbl(res, ~ .$lfo_exact_elpd[1]),
-    elpd_approx_lfo = map_dbl(res, ~ .$lfo_approx_elpd[1]),
-    elpd_diff_lfo = elpd_approx_lfo - elpd_exact_lfo,
+    elpd_exact_lfo = map_dbl(res, ~ get_elpd(.$lfo_exact_elpds)),
+    elpd_approx_fw_lfo = map_dbl(res, ~ get_elpd(.$lfo_approx_fw_elpds)),
+    elpd_approx_bw_lfo = map_dbl(res, ~ get_elpd(.$lfo_approx_bw_elpds)),
+    elpd_approx_cb_lfo  = map_dbl(res, ~ get_elpd(.$lfo_approx_cb_elpds)),
+    # compute differences to the exact values
+    elpd_diff_bw_lfo = elpd_approx_bw_lfo - elpd_exact_lfo,
+    elpd_diff_fw_lfo = elpd_approx_fw_lfo - elpd_exact_lfo,
+    elpd_diff_cb_lfo = elpd_approx_cb_lfo - elpd_exact_lfo,
     elpd_diff_loo = elpd_loo - elpd_exact_lfo,
-    npreds = map_dbl(res, ~ sum(!is.na(.$lfo_approx_elpds))),
-    nrefits = lengths(map(res, ~ attr(.$lfo_approx_elpds, "refits"))),
-    rel_nrefits = nrefits / npreds
-  )
+    nrefits_bw = map_dbl(res, ~ get_refits(.$lfo_approx_bw_elpds)),
+    nrefits_fw = map_dbl(res, ~ get_refits(.$lfo_approx_fw_elpds)),
+    nrefits_cb = map_dbl(res, ~ get_refits(.$lfo_approx_cb_elpds)),
+    rel_nrefits_bw = nrefits_bw / (N - L),
+    rel_nrefits_fw = nrefits_fw / (N - L),
+    rel_nrefits_cb = nrefits_cb / (N - L)
+  ) %>%
+  select(-res)
 ```
 
-Results of the 1-SAP simulations are visualized
-in Figure \@ref(fig:1sap). Comparing the columns of Figure \@ref(fig:1sap), it
-is clearly visible that the accuracy of the PSIS approximation increases with
-decreasing $\tau$, up to almost perfect accuracy for $\tau = 0.5$. At the same 
-time, the proportion of observations at which refitting the model was required
-increased substantially with decreasing $\tau$ (see Table 
-\@ref(tab:refits)). Using $\tau = 0.6$ induced a slight positive
-bias in PSIS-LFO-CV, but also reduced the number of required refits by roughly 
-$30\%$. Another $30\%$ reduction in the number of refits was achieved by
-using $\tau = 0.7$ but at the cost of disproportionally increasing the 
-positive bias in PSIS-LFO-CV. As expected, LOO-CV is a biased estimate of the 
-1-SAP performance for all non-constant models in particular those with a trend 
-in the time-series (see the lighter histograms in Figure \@ref(fig:1sap)).
+Results of the 1-SAP simulations are visualized in Figure \@ref(fig:1sap).
+Comparing the columns of Figure \@ref(fig:1sap), it is clearly visible that the
+accuracy of the PSIS approximation is very high independent of the threshold
+$\tau$. The proportion of observations at which refitting the model was required
+did not exceed $3\%$ under all conditions and only increased minimally when
+decreasing $\tau$ (see Table \@ref(tab:refits)). At least for the models
+investigated in our simulations, using $\tau = 0.7$ seems to be sufficient for
+achieving high accuracy and as such there is no need to lower the threshold below
+that value. As expected, LOO-CV is a biased estimate of the 1-SAP performance
+for all non-constant models in particular those with a trend in the time-series
+(see the lighter histograms in Figure \@ref(fig:1sap)).
 
 ```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
 lfo_sims %>% 
   filter(is.na(B), M == 1) %>% 
-  select(elpd_diff_lfo, elpd_diff_loo, model, tau) %>%
-  gather("Type", "elpd_diff", elpd_diff_lfo, elpd_diff_loo) %>%
-  ggplot(aes(x = elpd_diff, y = ..density.., fill = Type)) +
+  select(elpd_diff_fw_lfo, elpd_diff_loo, model, tau) %>%
+  gather("Mode", "elpd_diff", starts_with("elpd_diff")) %>%
+  ggplot(aes(x = elpd_diff, y = ..density.., fill = Mode)) +
   facet_grid(
-    model ~ tau, scales = "free_y", 
+    model ~ tau, scales = "free_y",
     labeller = label_parsed
   ) +
   geom_histogram(alpha = 0.7) +
   scale_fill_manual(
-    values = colors,
-    labels = c("Approximate LFO-CV", "Approximate LOO-CV")
+    values = unname(elpd_colors[c("lfo_fw", "loo")]),
+    labels = c("PSIS-LFO-CV", "PSIS-LOO-CV"),
   ) +
-  labs(x = 'ELPD difference to exact LFO-CV', y = "Density") +
+  labs(x = "ELPD difference of approximate and exact LFO-CV", y = "") +
   geom_vline(xintercept = 0, linetype = 2) +
   theme_bw() +
-  theme(legend.position = "bottom") +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(), 
+    legend.position = "bottom"
+  ) +
   NULL
 ```
 
 ```{r refits, cache=FALSE}
 lfo_sims %>% 
   filter(is.na(B)) %>%
-  select(model, M, k_thres, rel_nrefits) %>%
+  select(rel_nrefits_fw, model, M, k_thres) %>%
   group_by(model, M, k_thres) %>%
-  summarise(rel_nrefits = round(mean(rel_nrefits), 2)) %>%
+  summarise(rel_nrefits = round(mean(rel_nrefits_fw), 2)) %>%
   ungroup() %>%
   spread("model", "rel_nrefits") %>%
   mutate(M = ifelse(duplicated(M), "", M)) %>%
   rename(`$\\tau$` = "k_thres") %>%
   kable(
-    caption = "Mean proportions of required refits.",
+    caption = "Mean proportions of required refits for PSIS-LFO-CV.",
     booktabs = TRUE,
     escape = FALSE
   ) %>%
@@ -590,36 +662,46 @@ lfo_sims %>%
   )
 ```
 
-Results of the 4-SAP simulations are visualized in
-Figure \@ref(fig:4sap). Comparing the columns of Figure \@ref(fig:4sap), it is
-clearly visible that the accuracy of the PSIS approximation increases with
-decreasing $\tau$, up to almost perfect accuracy for $\tau = 0.5$. At the same
-time, the proportion of observations at which refitting the model was required
-increased substantially with decreasing $\tau$ (see Table \@ref(tab:refits)). In
-light of the corresponding 1-SAP results presented above, this is not surprising as
-the procedure for determining the necessity of a refit is independent of $M$ (see
-Section \@ref(approximate-MSAP)). Using $\tau = 0.6$ again induced a slight
-positive bias in PSIS-LFO-CV, but also reduced the number of required refits by
-roughly $30\%$. Another $30\%$ reduction in the number of refits was achieved by
-using $\tau = 0.7$ but at the cost of disproportionally increasing the positive
-bias in PSIS-LFO-CV. PSIS-LOO-CV is not displayed in Figure \@ref(fig:4sap) as
+Results of the 4-SAP simulations are visualized in Figure \@ref(fig:4sap).
+Comparing the columns of Figure \@ref(fig:1sap), it is again clearly visible
+that the accuracy of the PSIS approximation is independent of the threshold
+$\tau$. The proportion of observations at which refitting the model was required
+did not exceed $3\%$ under all conditions and only increased minimally when
+decreasing $\tau$ (see Table \@ref(tab:refits)). In light of the corresponding
+1-SAP results presented above, this is not surprising as the procedure for
+determining the necessity of a refit is independent of $M$ (see Section
+\@ref(approximate-MSAP)). When looking at the last three rows of Figure
+\@ref(fig:4sap), we see that there is a lot of variation around the true 4-SAP
+ELPD value across simulation trials, although in expectation PSIS-LFO-CV is
+still unbiased. This variation is caused by the fact we predict four
+observations into the future using models which only have an AR(2) component.
+Thus, predictions of the 3rd and 4th future observations become much more
+uncertain and, as a result, the PSIS-LFO-CV approximation becomes much more
+uncertain as well. This should not be seen as a limitation of our proposed
+approximation method but rather a limitation in the prediction capabilities of
+the applied models. PSIS-LOO-CV is not displayed in Figure \@ref(fig:4sap) as
 the number of observations predicted as each step (4 vs. 1) renders 4-SAP LFO-CV
 and LOO-CV incomparable.
 
 ```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
 lfo_sims %>% 
   filter(is.na(B), M == 4) %>%
-  select(elpd_diff_lfo, model, tau) %>%
-  ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
+  select(elpd_diff_fw_lfo, model, tau) %>%
+  ggplot(aes(x = elpd_diff_fw_lfo, y = ..density..)) +
   facet_grid(
-    model ~ tau, scales = "free_y", 
+    model ~ tau, scales = "free_y",
     labeller = label_parsed
   ) +
-  geom_histogram(alpha = 0.7, fill = colors[1]) +
-  labs(x = 'ELPD difference of approximate and exact LFO-CV', y = "Density") +
+  geom_histogram(alpha = 0.7, fill = unname(elpd_colors["lfo_fw"])) +
+  labs(x = "ELPD difference of approximate and exact LFO-CV", y = "") +
   geom_vline(xintercept = 0, linetype = 2) +
+  xlim(c(-30, 30)) +
   theme_bw() +
-  theme(legend.position = "bottom") +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(), 
+    legend.position = "bottom"
+  ) +
   NULL
 ```
 
@@ -674,53 +756,47 @@ ggplot(cbind(df, preds), aes(x = year, y = Estimate)) +
 
 ```{r}
 L <- 20
-k_thres <- 0.6
+k_thres <- 0.7
 loo_lh <- loo(log_lik(fit_lh)[, (L + 1):N])
 ```
 
 Based on this data and model, we will illustrate the use of PSIS-LFO-CV to
-provide estimates of $1$-SAP and $4$-SAP when leaving out all future values. To allow
-for reasonable predictions, we will require at least $L = 20$
-historical observations (20 years) to make predictions. Further, we set a
-threshold of $\tau =$ `r k_thres` for the Pareto $k$ estimates that indicate when
-refitting becomes necessary. Our fully reproducible analysis of this case
-study can be found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
+provide estimates of $1$-SAP and $4$-SAP when leaving out all future values. To
+allow for reasonable predictions, we will require at least $L = 20$ historical
+observations (20 years) to make predictions. Further, we set a threshold of
+$\tau =$ `r k_thres` for the Pareto $k$ estimates that indicate when refitting
+becomes necessary. Our fully reproducible analysis of this case study can be
+found on GitHub (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ```{r}
-M <- 1
 lh_elpd_1sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, 
+  fit_lh, type = "exact", M = 1, L = L, 
   file = "results/lh_elpd_1sap_exact.rds"
 )
 lh_elpd_1sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, 
-  file = "results/lh_elpd_1sap_approx.rds"
+  fit_lh, type = "approx", M = 1, L = L,
+  k_thres = k_thres, mode = "forward",
+  file = "results/lh_elpd_1sap_approx_fw.rds"
 )
-refits <- attributes(lh_elpd_1sap_approx)$refits
-nrefits <- length(refits)
-
-sum_lh_elpd_1sap_exact <- summarize_elpds(lh_elpd_1sap_exact)[1]
-sum_lh_elpd_1sap_approx <- summarize_elpds(lh_elpd_1sap_approx)[1]
+lh_nrefits <- get_refits(lh_elpd_1sap_approx)
 ```
 
 ```{r}
-M <- 4
 lh_elpd_4sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, 
+  fit_lh, type = "exact", M = 4, L = L, 
   file = "results/lh_elpd_4sap_exact.rds"
 )
 lh_elpd_4sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, 
-  file = "results/lh_elpd_4sap_approx.rds"
+  fit_lh, type = "approx", M = 4, L = L, 
+  k_thres = k_thres, mode = "forward",
+  file = "results/lh_elpd_4sap_approx_fw.rds"
 )
-sum_lh_elpd_4sap_exact <- summarize_elpds(lh_elpd_4sap_exact)[1]
-sum_lh_elpd_4sap_approx <- summarize_elpds(lh_elpd_4sap_approx)[1]
 ```
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP. The computed
 ELPD values are
-${\rm ELPD}_{\rm exact} =$ `r fmt(sum_lh_elpd_1sap_exact, 2)` and 
-${\rm ELPD}_{\rm approx} =$ `r fmt(sum_lh_elpd_1sap_approx, 2)`, which are
+${\rm ELPD}_{\rm exact} =$ `r fmt(get_elpd(lh_elpd_1sap_exact), 2)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(get_elpd(lh_elpd_1sap_approx), 2)`, which are
 almost identical. Not only is the overall ELPD estimated accurately but so are
 all of the pointwise ELPD contributions (see the left panel of Figure
 \@ref(fig:lh-pw-elpd)). In comparison, PSIS-LOO-CV returns
@@ -728,26 +804,30 @@ ${\rm ELPD}_{\rm loo} =$ `r fmt(loo_lh$estimates[1, 1], 1)`,
 overestimating the predictive performance and as suggested by our simulation
 results for stationary autoregessive models (see fourth row of Figure
 \@ref(fig:1sap)). Plotting the Pareto $k$ estimates reveals that the model had
-to be refit `r nrefits` times, out of a total of $N - L =$ `r N - L` predicted
+to be refit `r lh_nrefits` times, out of a total of $N - L =$ `r N - L` predicted
 observations (see Figure \@ref(fig:lh-pareto-k)). On average, this means one
-refit every `r fmt((N - L) / nrefits, 1)` observations, which implies a drastic
+refit every `r fmt((N - L) / lh_nrefits, 1)` observations, which implies a drastic
 speed increase compared to exact LFO-CV.
 
 Performing LFO-CV for 4-SAP, we obtained ${\rm ELPD}_{\rm exact} =$ 
-`r fmt(sum_lh_elpd_4sap_exact, 2)` and ${\rm ELPD}_{\rm approx} =$ 
-`r fmt(sum_lh_elpd_4sap_approx, 2)`, which are again almost identical.
+`r fmt(get_elpd(lh_elpd_4sap_exact), 2)` and ${\rm ELPD}_{\rm approx} =$ 
+`r fmt(get_elpd(lh_elpd_4sap_approx), 2)`, which are again very similar.
 In general, as $M$ increases, the approximation will tend to become more variable
 around the true value in absolute ELPD units because the ELPD increment of each 
 observation will be based on more and more observations (see also Section 
-\@ref(simulations)). For this example, we see some
-differences in the pointwise ELPD contributions of specific observations which
-were hard to predict accurately by the model (see the right panel of Figure
-\@ref(fig:lh-pw-elpd)). However, these differences cancel out in
-the overall ELPD estimate. Since, for constant threshold $\tau$, the importance
-weights are the same independent of $M$, the Pareto $k$ estimates are also the 
+\@ref(simulations)). For this example, we see some considerable differences in
+the pointwise ELPD contributions of specific observations which were hard to
+predict accurately by the model (see the right panel of Figure
+\@ref(fig:lh-pw-elpd)). This is to be expected as predicting $M$ steps ahead
+using an AR model will yield highly uncertain predictions if most of the
+autocorrelation happens at lags smaller than $M$ (see also the bottom rows in
+Figure \ref{fig:4sap}). For such a model, it may thus be ill adviced to evaluate
+predictions too far into the future, at least when using the approximate methods
+presented in this paper. Since, for constant threshold $\tau$, the importance
+weights are the same independent of $M$, the Pareto $k$ estimates are also the
 same in $4$-SAP as in $1$-SAP.
 
-```{r lh-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions for 1-SAP (left) and 4-SAP (right) for the Lake Huron model. A threshold of $\\tau = 0.6$ was used for the Pareto $k$ estimates. $M$ is the number of predicted future observations."}
+```{r lh-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions for 1-SAP (left) and 4-SAP (right) for the Lake Huron model. A threshold of $\\tau = 0.7$ was used for the Pareto $k$ estimates. $M$ is the number of predicted future observations."}
 lh_pw_elpd <- tibble(
   elpd_exact = na.omit(lh_elpd_1sap_exact),
   elpd_approx = na.omit(lh_elpd_1sap_approx),
@@ -769,10 +849,10 @@ ggplot(lh_pw_elpd, aes(elpd_exact, elpd_approx)) +
   theme_bw()
 ```
 
-```{r lh-pareto-k, fig.height=2.5, fig.cap="Pareto $k$ estimates for PSIS-LFO-CV of the Lake Huron model leaving out all future values. The dotted red line indicates the threshold at which the refitting was necessary."}
+```{r lh-pareto-k, fig.height=2.5, fig.cap="Pareto $k$ estimates for PSIS-LFO-CV of the Lake Huron model. The dotted red line indicates the threshold at which the refitting was necessary."}
 ks <- na.omit(attributes(lh_elpd_1sap_approx)$ks)
 ids <- (L + 1):N
-plot_ks(ks, ids)
+plot_ks(ks, ids, k_thres = k_thres)
 ```
 
 
@@ -816,7 +896,7 @@ fit_cb <- brm(
   prior = prior(normal(0, 0.1), class = lscale, coef = gpyear),
   chain = 2, warmup = 4000, iter = 7000, inits = 0,
   control = list(adapt_delta = 0.99, max_treedepth = 15),
-  seed = 5838234, file = "models/fit_cb"
+  seed = 5838234, file = "models/fit_cb" 
 )
 ```
 
@@ -829,82 +909,75 @@ plot(me_cb, points = TRUE, plot = FALSE)[[1]] +
 ```{r}
 N <- NROW(cherry_doy)
 L <- 100
-M <- 1
+k_thres <- 0.7
+
 cb_elpd_1sap_exact <- compute_lfo(
-  fit_cb, type = "exact", M = M, L = L, 
+  fit_cb, type = "exact", M = 1, L = L, 
+  factorizes = TRUE,
   file = "results/cb_elpd_1sap_exact.rds"
 )
 cb_elpd_1sap_approx <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, 
-  file = "results/cb_elpd_1sap_approx.rds"
+  fit_cb, type = "approx", M = 1, L = L, 
+  k_thres = k_thres, mode = "forward", factorizes = TRUE,
+  file = "results/cb_elpd_1sap_approx_fw.rds"
 )
-refits <- attributes(cb_elpd_1sap_approx)$refits
-nrefits <- length(refits)
-
-sum_cb_elpd_1sap_exact <- summarize_elpds(cb_elpd_1sap_exact)[1]
-sum_cb_elpd_1sap_approx <- summarize_elpds(cb_elpd_1sap_approx)[1]
+cb_nrefits <- get_refits(cb_elpd_1sap_approx)
 
 loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ])
 ```
 
 ```{r}
-M <- 4
 cb_elpd_4sap_exact <- compute_lfo(
-  fit_cb, type = "exact", M = M, L = L, 
+  fit_cb, type = "exact", M = 4, L = L, 
   file = "results/cb_elpd_4sap_exact.rds"
 )
 cb_elpd_4sap_approx <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, 
-  file = "results/cb_elpd_4sap_approx.rds"
+  fit_cb, type = "approx", M = 4, L = L,
+  k_thres = k_thres, mode = "forward", factorizes = TRUE,
+  file = "results/cb_elpd_4sap_approx_fw.rds"
 )
-
-sum_cb_elpd_4sap_exact <- summarize_elpds(cb_elpd_4sap_exact)[1]
-sum_cb_elpd_4sap_approx <- summarize_elpds(cb_elpd_4sap_approx)[1]
 ```
 
 We start by computing exact and PSIS-approximated LFO-CV of 1-SAP. We compute
-${\rm ELPD}_{\rm exact} =$ `r fmt(sum_cb_elpd_1sap_exact, 1)` and 
-${\rm ELPD}_{\rm approx} =$ `r fmt(sum_cb_elpd_1sap_approx, 1)`, which are highly
-similar. PSIS-LFO-CV slightly overestimates the predictive performance for 
-$\tau =$ `r k_thres`, which is in line with our simulation results (see Section
-\@ref(simulations)). However, as the difference is so small, it may also just be
-random error. As shown in the left panel of Figure \@ref(fig:cb-pw-elpd), the
-pointwise ELPD contributions are highly accurate, with no outliers, indicating
-the our approximation has worked well consistently across observations.
-PSIS-LFO-CV performs much better than PSIS-LOO-CV (${\rm
-ELPD}_{\rm approx} =$ `r fmt(loo_cb$estimates[1, 1], 1)`), which
+${\rm ELPD}_{\rm exact} =$ `r fmt(get_elpd(cb_elpd_1sap_exact), 1)` and 
+${\rm ELPD}_{\rm approx} =$ `r fmt(get_elpd(cb_elpd_1sap_approx), 1)`, 
+which are highly similar. As shown in the left panel of Figure
+\@ref(fig:cb-pw-elpd), the pointwise ELPD contributions are highly accurate,
+with no outliers, indicating the our approximation has worked well consistently
+across observations. PSIS-LFO-CV performs much better than PSIS-LOO-CV
+(${\rm ELPD}_{\rm approx} =$  `r fmt(loo_cb$estimates[1, 1], 1)`), which
 overestimates the predictive performance. Plotting the Pareto $k$ estimates
-reveals that the model had to be refit `r nrefits` times, out of a total of $N -
+reveals that the model had to be refit `r cb_nrefits` times, out of a total of $N -
 L =$ `r N - L` predicted observations (see Figure \@ref(fig:cb-pareto-k)). On
-average, this means one refit every `r fmt((N - L) / nrefits, 1)` observations,
+average, this means one refit every `r fmt((N - L) / cb_nrefits, 1)` observations,
 which implies a drastic speed increase as compared to exact LFO-CV.
 
 Performing LFO-CV of 4-SAP, we compute ${\rm ELPD}_{\rm exact} =$ 
-`r fmt(sum_cb_elpd_4sap_exact, 1)` and ${\rm ELPD}_{\rm approx} =$ 
-`r fmt(sum_cb_elpd_4sap_approx, 1)`, which are again similar but not as close as
-the corresponding 1-SAP results. This is to be expected as the uncertainty of
+`r fmt(get_elpd(cb_elpd_4sap_exact), 1)` and ${\rm ELPD}_{\rm approx} =$
+`r fmt(get_elpd(cb_elpd_4sap_approx), 1)`, which are again similar but not as close
+as the corresponding 1-SAP results. This is to be expected as the uncertainty of
 PSIS-LFO-CV increases for increasing $M$ (see Section \@ref(simulations)). As
-displayed in the right panel of Figure \@ref(fig:cb-pw-elpd), the pointwise 
-ELPD contributions are highly accurate, with no outliers, indicating the our
-approximation has worked well consistently across observations. For
-constant threshold $\tau$, the importance weights are the same independent of
-$M$, so the Pareto $k$ estimates are the same for $4$-SAP and $1$-SAP.
+displayed in the right panel of Figure \@ref(fig:cb-pw-elpd), the pointwise ELPD
+contributions are highly accurate in most cases, with a few small outliers in
+both directions. For constant threshold $\tau$, the importance weights are the
+same independent of $M$, so the Pareto $k$ estimates are the same for $4$-SAP
+and $1$-SAP.
 
-```{r cb-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions of 1-SAP (left) and 4-SAP (right) for the cherry blossom model. A threshold of $\\tau = 0.6$ was used for the Pareto $k$ estimates. $M$ is the number of predicted future observations."}
+```{r cb-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions of 1-SAP (left) and 4-SAP (right) for the cherry blossom model. A threshold of $\\tau = 0.7$ was used for the Pareto $k$ estimates. $M$ is the number of predicted future observations."}
 cb_pw_elpd <- tibble(
   elpd_exact = na.omit(cb_elpd_1sap_exact),
-  elpd_approx = na.omit(cb_elpd_1sap_approx),
+  elpd_approx_fw = na.omit(cb_elpd_1sap_approx),
   k = na.omit(attributes(cb_elpd_1sap_approx)$ks),
   M = "M = 1"
 ) %>% bind_rows(
   tibble(
     elpd_exact = na.omit(cb_elpd_4sap_exact),
-    elpd_approx = na.omit(cb_elpd_4sap_approx),
+    elpd_approx_fw = na.omit(cb_elpd_4sap_approx),
     k = na.omit(attributes(cb_elpd_4sap_approx)$ks),
     M = "M = 4"
   )
 )
-ggplot(cb_pw_elpd, aes(elpd_exact, elpd_approx)) +
+ggplot(cb_pw_elpd, aes(elpd_exact, elpd_approx_fw)) +
   facet_wrap(facets = "M", nrow = 1, ncol = 2, scales = "free") +
   geom_abline(slope = 1) +
   geom_point() +
@@ -912,37 +985,40 @@ ggplot(cb_pw_elpd, aes(elpd_exact, elpd_approx)) +
   theme_bw()
 ```
 
-```{r cb-pareto-k, fig.height=2.5, fig.cap="Pareto $k$ estimates for PSIS-LFO-CV of the cherry blossom model leaving out all future values. The dotted red line indicates the threshold at which the refitting was necessary."}
+```{r cb-pareto-k, fig.height=2.5, fig.cap="Pareto $k$ estimates for PSIS-LFO-CV of the cherry blossom model. The dotted red line indicates the threshold at which the refitting was necessary."}
 ks <- na.omit(attributes(cb_elpd_1sap_approx)$ks)
 ids <- (L + 1):N
-plot_ks(ks, ids)
+plot_ks(ks, ids, k_thres = k_thres)
 ```
 
 
 # Conclusion {#discussion}
 
-We proposed, evaluated, and demonstrated PSIS-LFO-CV, a new method for approximating
-cross-validation methods for time-series models. PSIS-LFO-CV is intended to  
-be used when the prediction task is predicting future values based
-solely on past values and thus leave-one-out cross-validation is inappropriate. 
-Within the set of such prediction tasks, we can choose
-the number $M$ of future values to be predicted at a time.
+We proposed, evaluated, and demonstrated PSIS-LFO-CV, a new method for
+approximating cross-validation methods for time-series models. PSIS-LFO-CV is
+intended to be used when the prediction task is predicting future values based
+solely on past values and thus leave-one-out cross-validation is inappropriate.
+Within the set of such prediction tasks, we can choose the number $M$ of future
+values to be predicted at a time. For a set of common time-series models, we
+established via simulations that PSIS-LFO-CV is an unbiased approximation
+of exact LFO-CV if we choose the threshold $\tau$ of the Pareto $k$ estimates to
+be not larger than $\tau = 0.7$. That is, PSIS-LFO-CV does not require a smaller
+(i.e., stricter threshold) than PSIS-LOO-CV to achieve satistfactory accuracy.
 
-For a set of common time-series models, we established via simulations that
-PSIS-LFO-CV is an almost unbiased approximation of exact LFO-CV if we choose the
-threshold $\tau$ of the Pareto $k$ estimates to be not larger than $\tau = 0.6$.
-Because the number of required model refits (and thus the computation time)
-increases with decreasing $\tau$, we currently see $\tau = 0.6$ as a good
-default when performing PSIS-LFO-CV. This is noticeably smaller than the
-recommended threshold for PSIS-LOO-CV of $\tau = 0.7$ due to the greater 
-dependence in the errors in the LFO case.
+By nature of the approximated $M$-step-ahead predictions, the comptutation time
+of PSIS-LFO-CV still increases linearily with increasing number of observations
+$N$. However, in our numerical experiments, we were
+able to reduce to computation time by a factor of roughly 25 to 100 as compared
+to exact LFO-CV. As a result, by means of our proposed method, LFO-CV becomes
+feasible for a lot of time-series data sets and corresponding models on which it
+was previously infeasible.
 
 Lastly, we want to briefly note that LFO-CV can also be used to compute marginal
 likelihoods. Using basic rules of conditional probability, we can factor the
 log marginal likelihood as
 
 \begin{equation}
-\log p(y) = \sum_{i=1}^N \log p(y_i \,|\, y_{1:i}).
+\log p(y) = \sum_{i=1}^N \log p(y_i \,|\, y_{1:(i-1)}).
 \end{equation}
 
 This is exactly the ELPD of 1-SAP if we set $L = 0$, that is if we
@@ -955,8 +1031,9 @@ be a noteworthy option if for some reason other methods fail.
 
 # Acknowledgments
 
-We thank Daniel Simpson, Shira Mitchell, and M\r{a}ns Magnusson for helpful 
-comments and discussions on earlier versions of this paper.
+We thank Daniel Simpson, Shira Mitchell, and M\r{a}ns Magnusson for helpful
+comments and discussions on earlier versions of this paper. We also acknowledge
+the computational resources provided by the Aalto Science-IT project.
 
 \newpage
 
@@ -968,42 +1045,248 @@ The R flavored pseudo code below provides a description of the proposed
 PSIS-LFO-CV algorithm when leaving out all future values. See https://github.com/paul-buerkner/LFO-CV-paper for the actual R code.
 
 ```{r, tidy=FALSE, eval=FALSE, echo = TRUE}
+# Approximate Leave-Future-Out Cross-Validation (LFO-CV)
+# Arguments:
+#   model: the fitted time-series model based on the complete data
+#   data: the complete data set
+#   M: number of steps to be predicted into the future
+#   L: minimal number of observations necessary to make predictions
+#   tau: threshold of the Pareto-k-values
+# Returns:
+#   PSIS approximated ELPD value of LFO-CV
 PSIS_LFO_CV = function(model, data, M, L, tau) {
-  # Arguments:
-  #   model: the fitted time-series model based on the complete data
-  #   data: the complete data set
-  #   M: number of steps to be predicted into the future
-  #   L: minimal number of observations necessary to make predictions
-  #   tau: threshold of the Pareto-k-values
-  # Returns:
-  #   PSIS approximated ELPD value when leaving out all future values
   N = number_of_rows(data)
   S = number_of_draws(model)
-  LL_matrix = matrix(nrow = S, ncol = N)
   out = vector(length = N)
-  model_star = model
-  i_star = N
-  LL = log_likelihood(model_star, data = data)
-  LL_matrix[, (N - M + 1):N] = LL[, (N - M + 1):N]
-  for (i in (N - M):L) {
-    LL = log_likelihood(model_star, data = data[1:(i + M), ])
-    LL_matrix[, i] = LL[, i]
-    PSIS_object = PSIS(-sum_per_row(LL_matrix[, (i+1):i_star]))
+  # refit the model using the first L observations
+  i_star = L
+  model_star = update(model, data = data[1:L, ])
+  out[L] = exact_ELPD(model_star, data = data[(L + 1):(L + M), ])
+  # loop over all observations at which to perform predictions
+  for (i in (L + 1):(N - M)) {
+    PSIS_object = PSIS(model_star, data = data[(i_star + 1):i , ])
     k = pareto_k_values(PSIS_object)
     if (k > tau) {
       # refitting the model is necessary
       i_star = i
       model_star = update(model_star, data = data[1:i, ])
-      LL = log_likelihood(model_star, data = data[1:(i + M), ])
-      LL_matrix[, i] = LL[, i]
-      out[i] = log_mean_exp(sum_per_row(LL[, (i + 1):(i + M)]))
+      out[i] = exact_ELPD(model_star, data = data[(i + 1):(i + M), ])
     } else {
       # PSIS approximation is possible
-      LW = log_weights(PSIS_object)
-      out[i] = log_sum_exp(LW + sum_per_row(LL[, (i + 1):(i + M)]))
+      log_PSIS_weights = log_weights(PSIS_object)
+      out[i] = approx_ELPD(model_star, data = data[(i + 1):(i + M), ],
+                           log_weights = log_PSIS_weights)
     }
   }
   return(sum(out))
 }
 ```
 
+
+## Appendix B: Backward PSIS-LFO-CV
+
+Instead of moving forward in time, that is, starting our predictions from the
+$L$th observation, we may also move backwards, a procedure to which we will
+refer to as backward PSIS-LFO-CV. Starting with $i = N - M$, we approximate each
+$p(y_{i+1:M} \,|\, y_{1:i})$ via
+
+\begin{equation}
+ p(y_{i+1:M} \,|\, y_{1:i}) \approx
+   \frac{ \sum_{s=1}^S w_i^{(s)}\, p(y_{i+1:M} \,|\, \theta^{(s)})}
+        { \sum_{s=1}^S w_i^{(s)}},
+\end{equation}
+
+where $w_i^{(s)}$ are the PSIS weights and $\theta^{(s)}$ are draws from the
+posterior distribution based on _all_ observations. To obtain $w_i^{(s)}$, we
+first compute the raw importance ratios
+
+\begin{equation}
+r_i^{(s)} = r_i(\theta^{(s)}) = \frac{f_i(\theta^{(s)})}{g(\theta^{(s)})} 
+\propto \frac{
+\prod_{j \in J \backslash J_i} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+}{
+\prod_{j \in J} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+}
+= \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
+\end{equation}
+
+with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
+above. The index set $J_i$ contains the indices of all observations which are
+part of the data for the model being fitted but not for the model whose
+predictive performance we are trying to approximate. That is, for the starting
+value $i = N - M$, we have $J_i = \{i+1, \ldots, N\}$. This approach to
+computing importance ratios is a generalization of the approach used in
+PSIS-LOO-CV, where only a single observation is left out at a time and thus 
+$J_i = \{i\}$ for all $i$.
+
+Starting from $i = N - M$, we gradually *decrease* $i$ by $1$ (i.e., we move
+backwards in time) and repeat the process. At some observation $i$, the
+variability of the importance ratios $r_i^{(s)}$ will become too large and
+importance sampling fails. We will refer to this particular value of $i$ as
+$i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
+$i$ does the estimated shape parameter $k$ of the generalized Pareto
+distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
+then do we refit the model using only observations up to $i^\star_1$ and then
+restart the process. Until the next refit, we thus have $J_i = \{i+1, \ldots,
+i^\star_1 \}$ for $i < i^\star_1$, as the refitted model only contains the
+observations up to index $i^\star_1$. An illustration of this procedure is shown
+in Figure \@ref(fig:vis-msap-bw). In some cases we may only need to refit once
+and in other cases we will find a value $i^\star_2$ that requires a second
+refitting, maybe an $i^\star_3$ that requires a third refitting, and so on. We
+repeat the refitting as many times as is required (only if $k > \tau$) until we
+arrive at $i = L$. Recall that $L$ is the minimum number of observations we have
+deemed acceptable for making predictions.
+
+We may even combine forward and backward mode PSIS-LFO-CV in the following way.
+First, we start with forward mode until a refit becomes necessary, say at
+observation $i^\star$. Then, we apply backward mode on the basis of the refitted
+model and compute the mean between forward and backward mode pointwise ELPD
+values of the observations $i^\star - 1, i^\star - 2, \ldots$. We do this until
+the backward mode requires a refit at which point we stop the process and
+continue with forward mode at observation $i^\star$. This algorithm requires
+exactly as many refits as the forward mode while potentially increasing accuracy
+for those observations for which the pointwise ELPD contribution was computed
+via both forward and backward mode PSIS-LFO-CV.
+
+```{r vis-msap-bw, fig.width=8, fig.height=3, fig.cap="Visualisation of approximate one-step-ahead predictions using backward PSIS-LFO-CV. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
+status_levels <- c("included", "left out", "left out (PSIS)")
+df <- data.frame(
+  obs = rep(1:9, 3),
+  i = factor(rep(3:5, each = 9)),
+  Status = c(
+    rep("included", 2), rep("left out (PSIS)", 2), rep("left out", 5),
+    rep("included", 3), rep("left out (PSIS)", 1), rep("left out", 5),
+    rep("included", 4), rep("left out", 5)
+  )
+) %>%
+  mutate(Status = factor(Status, levels = status_levels))
+
+msap_colors <- c(
+  bayesplot::color_scheme_get("viridis")$light,
+  bayesplot::color_scheme_get("viridis")$dark,
+  bayesplot::color_scheme_get("viridis")$mid_highlight
+)
+
+ggplot(df, aes(obs, i, fill = Status)) +
+  geom_tile(height = 0.9, width = 1, col = "black") +
+  annotate(
+    'text', x = 3:5, y = c(1, 2, 3), 
+    label = "X", parse = TRUE, 
+    size = 10, color = "white"
+  ) +
+  labs(x = "Observation", y = "Predicted observation") +
+  scale_x_continuous(breaks = 1:9) +
+  scale_fill_manual(values = msap_colors) +
+  bayesplot::theme_default() +
+  NULL
+```
+
+The simulation results comparing backward to forward PSIS-LFO-CV can be found in
+Figure \ref{fig:1sap-both} for $1$-SAP and in Figure \ref{fig:4sap-both} for
+$4$-SAP. As visible in both figures, backward PSIS-LFO-CV requires a lower
+$\tau$ threshold than forward PSIS-LFO-CV in order to be accurate ($\tau = 0.6$
+vs. $\tau = 0.7$). Otherwise, it may have a small positive bias. Further, as can
+be seen in Table \ref{tab:refits-both}, backward PSIS-LFO-CV requires
+considerably more refits then forward PSIS-LFO-CV. Together, this indicates
+that, in expectation, backward PSIS-LFO-CV is inferior to forward PSIS-LFO-CV.
+Further, as also displayed in Figure  \ref{fig:1sap-both} and \ref{fig:4sap-both},
+using a combination of forward and backward mode does not increase accuracy as
+compared to forward mode alone and we thus recommend the latter for application
+in practice.
+
+```{r 1sap-both, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
+lfo_sims %>% 
+  filter(is.na(B), M == 1) %>% 
+  select(starts_with("elpd_diff"), model, tau) %>%
+  gather("Mode", "elpd_diff", starts_with("elpd_diff")) %>%
+  filter(Mode != "elpd_diff_loo") %>%
+  ggplot(aes(x = elpd_diff, y = ..density.., fill = Mode)) +
+  facet_grid(
+    model ~ tau, scales = "free_y",
+    labeller = label_parsed
+  ) +
+  geom_histogram(alpha = 0.7) +
+  scale_fill_manual(
+    values = unname(elpd_colors[c("lfo_bw", "lfo_cb", "lfo_fw")]),
+    labels = c(
+      "PSIS-LFO-CV (backward)", 
+      "PSIS-LFO-CV (combined)", 
+      "PSIS-LFO-CV (forward)"
+    )
+  ) +
+  labs(x = "ELPD difference of approximate and exact LFO-CV", y = "") +
+  geom_vline(xintercept = 0, linetype = 2) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(), 
+    legend.position = "bottom"
+  ) +
+  NULL
+```
+
+```{r 4sap-both, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
+lfo_sims %>% 
+  filter(is.na(B), M == 4) %>%
+  select(starts_with("elpd_diff"), model, tau, -elpd_diff_loo) %>%
+  gather("Mode", "elpd_diff", starts_with("elpd_diff")) %>%
+  ggplot(aes(x = elpd_diff, y = ..density.., fill = Mode)) +
+  facet_grid(
+    model ~ tau, scales = "free_y",
+    labeller = label_parsed
+  ) +
+  geom_histogram(alpha = 0.7) +
+  scale_fill_manual(
+    values = unname(elpd_colors[c("lfo_bw", "lfo_cb", "lfo_fw")]),
+    labels = c(
+      "PSIS-LFO-CV (backward)", 
+      "PSIS-LFO-CV (combined)", 
+      "PSIS-LFO-CV (forward)"
+    )
+  ) +
+  labs(x = "ELPD difference of approximate and exact LFO-CV", y = "") +
+  geom_vline(xintercept = 0, linetype = 2) +
+  xlim(c(-30, 30)) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(), 
+    legend.position = "bottom"
+  ) +
+  NULL
+```
+
+
+```{r refits-both, cache=FALSE}
+lfo_sims %>% 
+  filter(is.na(B)) %>%
+  select(starts_with("rel_nrefits"), model, M, k_thres) %>%
+  gather("Mode", "rel_nrefits", starts_with("rel_nrefits")) %>%
+  mutate(
+    Mode = case_when(
+      grepl("_fw$", Mode) ~ "forward",
+      grepl("_bw$", Mode) ~ "backward",
+      grepl("_cb$", Mode) ~ "combined"
+    )
+  ) %>%
+  group_by(model, Mode, M, k_thres) %>%
+  summarise(rel_nrefits = round(mean(rel_nrefits), 2)) %>%
+  ungroup() %>%
+  spread("model", "rel_nrefits") %>%
+  group_by(Mode) %>%
+  mutate(M = ifelse(duplicated(M), "", M)) %>%
+  ungroup() %>%
+  mutate(Mode = ifelse(duplicated(Mode), "", Mode)) %>%
+  rename(`$\\tau$` = "k_thres") %>%
+  kable(
+    caption = "Mean proportions of required refits for both forward and backward PSIS-LFO-CV.",
+    booktabs = TRUE,
+    escape = FALSE
+  ) %>%
+  footnote(
+    general = "Note: Results are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. Abbreviations: $\\\\tau$ = threshold of the Pareto $k$ estimates; $M$ = number of predicted future observations.",
+    general_title = "",
+    threeparttable = TRUE,
+    escape = FALSE
+  )
+```

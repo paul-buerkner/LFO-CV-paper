@@ -5,9 +5,12 @@
 Archiv
 results/Archiv
 plots/Archiv
+triton/
+block-LFO-CV/
 *_cache
 *_files
 *.tex
 *.log
 *.out
+*.aux
 models

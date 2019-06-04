@@ -1,5 +1,7 @@
 source("sim_functions.R")
-library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(readr)
 library(foreach)
 library(doParallel)
 chains <- 1
@@ -7,12 +9,12 @@ iter <- 5000
 warmup <- 1000
 control <- list(adapt_delta = 0.95)
 
-nsims <- 5
+nsims <- 100
 conditions <- expand.grid(
   N = 200, 
-  M = c(1, 4), 
+  M = c(1, 4),
   L = 25, 
-  B = c(NA, 10),
+  B = NA,
   model = c(
     "constant", "linear", "quadratic",
     "AR2-only", "AR2-linear", "AR2-quadratic"
@@ -22,7 +24,7 @@ conditions <- expand.grid(
 )
 conditions$res <- list(list())
 
-cl <- makeCluster(2)
+cl <- makeCluster(parallel::detectCores())
 registerDoParallel(cl)
 
 J <- seq_len(nrow(conditions))

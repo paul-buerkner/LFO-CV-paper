@@ -15,9 +15,10 @@ log_mean_exp <- function(x) {
 
 # compute log of raw importance ratios
 # sums over observations *not* over posterior samples
-sum_log_ratios <- function(ll, ids = NULL, mode = c("backward", "forward")) {
-  mode <- match.arg(mode)
-  if (!is.null(ids)) ll <- ll[, ids, drop = FALSE]
+sum_log_ratios <- function(ll, ids = NULL, mode) {
+  if (!is.null(ids)) {
+    ll <- ll[, ids, drop = FALSE]
+  }
   out <- rowSums(ll)
   if (mode == "backward") {
     out <- -out
@@ -39,11 +40,11 @@ summarize_elpds <- function(elpds) {
   c(Estimate = sum(elpds), SE = sqrt(length(elpds) * var(elpds)))
 }
 
-plot_ks <- function(ks, ids, thres = 0.6) {
+plot_ks <- function(ks, ids, k_thres = 0.7) {
   dat_ks <- data.frame(ks = ks, ids = ids)
   ggplot(dat_ks, aes(x = ids, y = ks)) + 
-    geom_point(aes(color = ks > thres), shape = 3, show.legend = FALSE) + 
-    geom_hline(yintercept = thres, linetype = 2, color = "red2") + 
+    geom_point(aes(color = ks > k_thres), shape = 3, show.legend = FALSE) + 
+    geom_hline(yintercept = k_thres, linetype = 2, color = "red2") + 
     scale_color_manual(values = c("cornflowerblue", "darkblue")) + 
     labs(x = "Data point", y = "Pareto k") + 
     ylim(-0.5, 1.5)
@@ -84,29 +85,24 @@ rmse <- function(x, y, weights = NULL) {
 # @param M steps to predict into the future
 # @param L minimal number of observations required for fitting the model
 # @return A vector of pointwise ELPD values
-exact_lfo <- function(fit, M, L, criterion = c("elpd", "rmse"), ...) {
+exact_lfo <- function(fit, M, L, criterion = c("elpd", "rmse"), 
+                      factorize = FALSE, ...) {
   require(brms)
   stopifnot(is.brmsfit(fit))
   criterion <- match.arg(criterion)
-  df <- model.frame(fit)
-  N <- NROW(df)
+  data <- model.frame(fit)
+  N <- NROW(data)
   
   # compute exact LFO likelihoods
   out <- rep(NA, N)
   conv <- vector("list", N)
-  loglikm <- matrix(nrow = nsamples(fit), ncol = N)
   ids <- L:(N - M)
   for (i in ids) {
-    oos <- (i + 1):(i + M)
-    fit_star <- SM(update(
-      fit, newdata = df[1:i, , drop = FALSE], 
-      recompile = FALSE, refresh = 0, ...
-    ))
-    conv[[i]] <- convergence_summary(fit_star)
-    out[i] <- lfo_criterion(
-      fit_star, data = df[1:(i + M), , drop = FALSE], 
-      oos = oos, criterion = criterion
+    tmp <- lfo_step_pred(
+      i = i, fit_star = fit, data = data, M = M, 
+      criterion = criterion, factorize = factorize
     )
+    out[i] <- tmp$crit
   }
   attr(out, "conv") <- conv
   out
@@ -117,41 +113,36 @@ exact_lfo <- function(fit, M, L, criterion = c("elpd", "rmse"), ...) {
 # @param M steps to predict into the future
 # @param L minimal number of observations required for fitting the model
 # @return A vector of pointwise ELPD values
-approx_lfo <- function(fit, M, L, k_thres = 0.6, 
-                       mode = c("backward", "forward"),
+approx_lfo <- function(fit, M, L, k_thres = 0.7, 
+                       mode = c("forward", "backward", "combined"),
                        criterion = c("elpd", "rmse"),
-                       ...) {
+                       factorize = FALSE, ...) {
   require(brms)
   require(loo)
   stopifnot(is.brmsfit(fit))
   mode <- match.arg(mode)
   criterion <- match.arg(criterion)
-  df <- model.frame(fit)
-  N <- NROW(df)
+  data <- model.frame(fit)
+  N <- NROW(data)
   
   # compute approximate LFO likelihoods
-  loglikm <- loglik <- matrix(nrow = nsamples(fit), ncol = N)
-  out <- ks <- rep(NA, N)
+  out <- ks <- reffs <- rep(NA, N)
   conv <- vector("list", N)
   refits <- numeric(0)
-  if (mode == "forward") {
+  if (mode %in% c("forward", "combined")) {
     # move forward in time
     # need to refit the model with the first L observations
-    i_star <- L
-    refits <- c(refits, L)
-    ks[L] <- 0
-    fit_star <- SM(update(
-      fit, newdata = df[1:L, , drop = FALSE],
-      recompile = FALSE, refresh = 0, ...
-    ))
-    conv[[L]] <- convergence_summary(fit_star)
-    # perform exact LFO-CV for the Lth observation
-    oos <- (L + 1):(L + M)
-    df_pred <- df[1:(L + M), , drop = FALSE]
-    out[L] <- lfo_criterion(
-      fit_star, data = df_pred, 
-      oos = oos, criterion = criterion
+    reffs[L] <- 1
+    tmp <- lfo_step_pred(
+      i = L, fit_star = fit, data = data, M = M, 
+      criterion = criterion, factorize = factorize
     )
+    fit_star <- tmp$fit_star
+    i_star <- tmp$i_star
+    ks[L] <- tmp$k
+    refits[L] <- tmp$refit
+    conv[[L]] <- tmp$conv
+    out[L] <- tmp$crit 
     # start from L + 1 as we already handled L above
     ids <- (L + 1):(N - M)
   } else {
@@ -162,72 +153,144 @@ approx_lfo <- function(fit, M, L, k_thres = 0.6,
   }
 
   for (i in ids) {
-    # compute psis over observations in J_i 
-    if (mode == "forward") {
-      J_i <- (i_star + 1):i 
-    } else {
-      J_i <- (i + 1):i_star
+    if (mode == "combined") {
+      i_star_old <- i_star
     }
-    df_psis <- df[1:max(J_i), , drop = FALSE]
-    ll_psis <- log_lik(fit_star, newdata = df_psis) #oos = oos_J_i)
-    logratio <- sum_log_ratios(ll_psis, ids = J_i, mode = mode)
-    psis_part <- suppressWarnings(psis(logratio))
-    k <- pareto_k_values(psis_part)
-    ks[i] <- k
+    psis_i <- lfo_step_psis(
+      i = i, fit_star = fit_star, i_star = i_star, 
+      data = data, mode = mode, factorize = factorize
+    )
+    reffs[i] <- attr(psis_i, "r_eff_lr")
+    tmp <- lfo_step_pred(
+      i = i, fit_star = fit_star, i_star = i_star, 
+      data = data, M = M, psis = psis_i, k_thres = k_thres,
+      criterion = criterion, factorize = factorize
+    )
+    fit_star <- tmp$fit_star
+    i_star <- tmp$i_star
+    ks[i] <- tmp$k
+    refits[i] <- tmp$refit
+    conv[[i]] <- tmp$conv
+    out[i] <- tmp$crit
     
-    # observations to predict
-    oos <- (i + 1):(i + M)
-    df_pred <- df[1:(i + M), , drop = FALSE]
-    
-    # check whether PSIS approximation is possible
-    if (k > k_thres) {
-      # refit the model based on the first i observations
-      i_star <- i
-      refits <- c(refits, i)
-      fit_star <- sM(update(
-        fit, newdata = df[1:i, , drop = FALSE], 
-        recompile = FALSE, refresh = 0, ...
-      ))
-      conv[[i]] <- convergence_summary(fit_star)
-      # perform exact LFO-CV for the ith observation
-      out[i] <- lfo_criterion(
-        fit_star, data = df_pred, oos = oos, 
-        criterion = criterion
-      )
-    } else {
-      # PSIS approximate LFO-CV is possible
-      out[i] <- lfo_criterion(
-        fit_star, data = df_pred, oos = oos,
-        criterion = criterion, psis = psis_part
-      )
+    if (i_star == i && mode == "combined") {
+      # model was just refitted now also move backwards in time
+      ids_bw <- (i_star - 1):(i_star_old + 1) 
+      for (j in ids_bw) {
+        psis_j <- lfo_step_psis(
+          i = j, fit_star = fit_star, i_star = i_star, 
+          data = data, mode = "backward", factorize = factorize
+        )
+        k_j <- pareto_k_values(psis_j)
+        if (k_j > k_thres) {
+          # stop backward in forward if a refit is necessary
+          break
+        } else {
+          tmp <- lfo_step_pred(
+            i = j, fit_star = fit_star, i_star = i_star, 
+            data = data, M = M, psis = psis_j, k_thres = k_thres,
+            criterion = criterion, factorize = factorize
+          )
+          # TODO: use better criterion?
+          out[j] <- (out[j] + tmp$crit) / 2 
+        }
+      }
     }
   }
   attr(out, "ks") <- ks
+  attr(out, "reffs") <- reffs
   attr(out, "refits") <- refits
   attr(out, "conv") <- conv
   out
 }
 
-compute_lfo <- function(fit, type = c("exact", "approx"), file = NULL, ...) {
-  type <- match.arg(type)
-  if (!is.null(file) && file.exists(file)) {
-    return(readRDS(file))
+lfo_step_psis <- function(i, fit_star, data, i_star, mode,
+                          factorize = FALSE) {
+  # compute psis over observations in J_i 
+  if (mode %in% c("forward", "combined")) {
+    J_i <- (i_star + 1):i 
+  } else {
+    J_i <- (i + 1):i_star
   }
-  lfo_fun <- get(paste0(type, "_lfo"), mode = "function")
-  out <- lfo_fun(fit, ...)
-  if (!is.null(file)) {
-    saveRDS(out, file)
+  if (factorize) {
+    data_psis <- data[J_i, , drop = FALSE]
+    J_i <- seq_len(NROW(data_psis))
+  } else {
+    data_psis <- data[1:max(J_i), , drop = FALSE]
   }
-  out
+
+  ll_psis <- log_lik(fit_star, newdata = data_psis)
+  logratio <- sum_log_ratios(ll_psis, ids = J_i, mode = mode)
+  
+  # compute relative efficiency of logratios
+  chains <- fit_star$fit@sim$chains
+  chain_id <- rep(seq_len(chains), each = NROW(logratio) / chains)
+  r_eff_lr <- loo::relative_eff(logratio, chain_id = chain_id)
+  
+  r_eff <- loo::relative_eff(1 / exp(logratio), chain_id = chain_id)
+  psis <- SW(psis(logratio, r_eff = r_eff))
+  attr(psis, "r_eff_lr") <- r_eff_lr
+  psis
 }
 
-lfo_criterion <- function(fit, data, oos, criterion = c("elpd", "rmse"),
-                          psis = NULL, ...) {
+lfo_step_pred <- function(i, fit_star, data, M, criterion, factorize = FALSE,
+                          k_thres = Inf, i_star = i, psis = NULL, ...) {
+  print(i)
+  # observations to predict
+  oos <- (i + 1):(i + M)
+  data_pred <- data[1:(i + M), , drop = FALSE]
+  
+  if (!is.null(psis)) {
+    k <- pareto_k_values(psis) 
+  } else {
+    k <- 0
+  }
+  if (is.null(psis) || k > k_thres) {
+    # refit the model based on the first i observations
+    refit <- TRUE
+    i_star <- i
+    fit_star <- SM(update(
+      fit_star, newdata = data[1:i, , drop = FALSE], 
+      recompile = FALSE, refresh = 0, ...
+    ))
+    conv <- convergence_summary(fit_star)
+    # perform exact LFO-CV for the ith observation
+    crit <- comp_criterion(
+      fit_star, data = data_pred, oos = oos, 
+      criterion = criterion, factorize = factorize
+    )
+  } else {
+    # PSIS approximate LFO-CV is possible
+    refit <- FALSE
+    conv <- list()
+    crit <- comp_criterion(
+      fit_star, data = data_pred, oos = oos,
+      criterion = criterion, psis = psis,
+      factorize = factorize
+    )
+  }
+  list(
+    crit = crit,
+    i_star = i_star,
+    fit_star = fit_star,
+    k = k, 
+    conv = conv,
+    refit = refit
+  )
+}
+
+comp_criterion <- function(fit, data, oos, criterion = c("elpd", "rmse"),
+                           factorize = FALSE, psis = NULL, ...) {
   stopifnot(is.brmsfit(fit))
   data <- as.data.frame(data)
   stopifnot(all(oos %in% seq_len(NROW(data))))
   criterion <- match.arg(criterion)
   stopifnot(is.null(psis) || loo:::is.psis(psis))
+  if (factorize) {
+    # we don't need past observations to make predictions
+    data <- data[oos, , drop = FALSE]
+    oos <- seq_len(NROW(data))
+  }
   if (criterion == "elpd") {
     ll <- log_lik(fit, newdata = data, oos = oos, ...)
     sum_ll <- rowSums(ll[, oos, drop = FALSE])
@@ -268,41 +331,54 @@ convergence_summary <- function(x) {
   )
 }
 
+compute_lfo <- function(fit, type = c("exact", "approx"), file = NULL, ...) {
+  type <- match.arg(type)
+  if (!is.null(file) && file.exists(file)) {
+    return(readRDS(file))
+  }
+  lfo_fun <- get(paste0(type, "_lfo"), mode = "function")
+  out <- lfo_fun(fit, ...)
+  if (!is.null(file)) {
+    saveRDS(out, file)
+  }
+  out
+}
+
 fit_model <- function(model, N, ...) {
   require(brms)
   time <- seq_len(N)
   stime <- scale_unit_interval(time)
-  df <- data.frame(time = time, stime = stime)
+  data <- data.frame(time = time, stime = stime)
   ar_prior <- prior(normal(0, 0.5), class = "ar")
   ar_autocor <- cor_ar(~ stime, p = 2)
   if (model == "constant") {
-    df$y <- rnorm(N)
-    fit <- brm(y | mi() ~ 1, data = df, refresh = 0, ...)
+    data$y <- rnorm(N)
+    fit <- brm(y | mi() ~ 1, data = data, refresh = 0, ...)
   } else if (model == "linear") {
-    df$y <- 17 * stime + rnorm(N) 
-    fit <- brm(y | mi() ~ stime, data = df, refresh = 0, ...)
+    data$y <- 17 * stime + rnorm(N) 
+    fit <- brm(y | mi() ~ stime, data = data, refresh = 0, ...)
   } else if (model == "quadratic") {
-    df$y <- 17 * stime - 25 * stime^2 + rnorm(N)
-    fit <- brm(y | mi() ~ stime + I(stime^2), data = df, refresh = 0, ...)
+    data$y <- 17 * stime - 25 * stime^2 + rnorm(N)
+    fit <- brm(y | mi() ~ stime + I(stime^2), data = data, refresh = 0, ...)
   } else if (model == "AR2-only") {
-    df$y <- as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
+    data$y <- as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
-      y | mi() ~ 1, data = df, prior = ar_prior,
+      y | mi() ~ 1, data = data, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
   } else if (model == "AR2-linear") {
-    df$y <- 17 * stime +
+    data$y <- 17 * stime +
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
-      y | mi() ~ stime, data = df, prior = ar_prior,
+      y | mi() ~ stime, data = data, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
   } else if (model == "AR2-quadratic") {
-    df$y <- 17 * stime - 25 * stime^2 + 
+    data$y <- 17 * stime - 25 * stime^2 + 
       as.numeric(arima.sim(list(ar = c(0.5, 0.3)), N))
     fit <- brm(
       y | mi() ~ stime + I(stime^2), 
-      data = df, prior = ar_prior,
+      data = data, prior = ar_prior,
       autocor = ar_autocor, refresh = 0, ...
     )
   } else {
@@ -317,167 +393,29 @@ sim_fun <- function(j, conditions, ...) {
   N <- conditions$N[j]
   M <- conditions$M[j]
   L <- conditions$L[j]
-  B <- conditions$B[j]
   k_thres <- conditions$k_thres[j]
   model <- conditions$model[j]
   fit <- fit_model(model = model, N = N, ...)
   loo_cv <- loo(log_lik(fit)[, (L + 1):N])
   
-  if (is.finite(B)) {
-    lfo_exact_elpds <- exact_block_lfo(fit, M = M, L = L, B = B)
-    # only backward mode supported
-    lfo_approx_bw_elpds <- approx_block_lfo(
-      fit, M = M, L = L, B = B, k_thres = k_thres
-    )
-    # just a placeholder to keep the analysis code from breaking
-    lfo_approx_fw_elpds <- lfo_approx_bw_elpds
-  } else {
-    lfo_exact_elpds <- exact_lfo(fit, M = M, L = L)
-    lfo_approx_bw_elpds <- approx_lfo(
-      fit, M = M, L = L, k_thres = k_thres, mode = "backward"
-    )
-    lfo_approx_fw_elpds <- approx_lfo(
-      fit, M = M, L = L, k_thres = k_thres, mode = "forward"
-    )
-  }
-  lfo_exact_elpd <- summarize_elpds(lfo_exact_elpds)
-  lfo_approx_bw_elpd <- summarize_elpds(lfo_approx_bw_elpds)
-  lfo_approx_fw_elpd <- summarize_elpds(lfo_approx_fw_elpds)
+  lfo_exact_elpds <- exact_lfo(fit, M = M, L = L)
+  lfo_approx_fw_elpds <- approx_lfo(
+    fit, M = M, L = L, k_thres = k_thres, mode = "forward"
+  )
+  lfo_approx_bw_elpds <- approx_lfo(
+    fit, M = M, L = L, k_thres = k_thres, mode = "backward"
+  )
+  lfo_approx_cb_elpds <- approx_lfo(
+    fit, M = M, L = L, k_thres = k_thres, mode = "combined"
+  )
   
   # return all relevant information
   list(
     # storing 'fit' requires too much space
     loo_cv = loo_cv,
     lfo_exact_elpds = lfo_exact_elpds,
-    lfo_exact_elpd = lfo_exact_elpd,
-    lfo_approx_bw_elpds = lfo_approx_bw_elpds,
-    lfo_approx_bw_elpd = lfo_approx_bw_elpd,
     lfo_approx_fw_elpds = lfo_approx_fw_elpds,
-    lfo_approx_fw_elpd = lfo_approx_fw_elpd
+    lfo_approx_bw_elpds = lfo_approx_bw_elpds,
+    lfo_approx_cb_elpds = lfo_approx_cb_elpds
   )
-}
-
-
-# exact backward mode block LFO-CV
-# has its own function to allow simplifying the main functions
-exact_block_lfo <- function(fit, M, L, B, criterion = c("elpd", "rmse")) {
-  require(brms)
-  stopifnot(is.brmsfit(fit))
-  stopifnot(is.finite(B))
-  criterion <- match.arg(criterion)
-  df <- model.frame(fit)
-  N <- NROW(df)
-  if (B < M) {
-    stop2("The left-out block must at least consist ", 
-          "of all predicted observations")
-  }
-  
-  # compute exact LFO likelihoods
-  out <- rep(NA, N)
-  conv <- vector("list", N)
-  loglikm <- matrix(nrow = nsamples(fit), ncol = N)
-  for (i in (N - M):L) {
-    ioos <- 1:(i + M)
-    oos <- (i + 1):(i + M)
-    ind_rm <- (i + 1):min(i + B, N)
-    newdf <- df
-    if (max(ind_rm) < N) {
-      # responses of the left-out block need to be coded as 
-      # missing to retain a single consistent time series
-      newdf$y[ind_rm] <- NA
-    } else {
-      newdf <- newdf[-ind_rm, , drop = FALSE]
-    }
-    fit_star <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
-    conv[[i]] <- convergence_summary(fit_star)
-    out[i] <- lfo_criterion(
-      fit_star, data = df[ioos, , drop = FALSE], oos = oos, 
-      criterion = criterion
-    )
-  }
-  attr(out, "conv") <- conv
-  out
-}
-
-# approximate backward mode block LFO-CV
-# has its own function to allow simplifying the main functions
-approx_block_lfo <- function(fit, M, L, B, k_thres = 0.6, 
-                             criterion = c("elpd", "rmse")) {
-  require(brms)
-  require(loo)
-  stopifnot(is.brmsfit(fit))
-  stopifnot(is.finite(B))
-  df <- model.frame(fit)
-  N <- NROW(df)
-  if (B < M) {
-    stop2("The left-out block must at least consist ", 
-          "of all predicted observations (B >= M).")
-  }
-  
-  # compute approximate LFO likelihoods
-  loglikm <- loglik <- matrix(nrow = nsamples(fit), ncol = N)
-  out <- ks <- rep(NA, N)
-  conv <- vector("list", N)
-  fit_star <- fit
-  # last observation included in the model fitting
-  i_star <- N
-  refits <- numeric(0)
-  # no isolated predictions of the last M observations
-  if (M > 1) {
-    loglik[, (N - M + 2):N] <- log_lik(fit_star)[, (N - M + 2):N, drop = FALSE]  
-  }
-  for (i in (N - M):L) {
-    ioos <- 1:(i + M)
-    oos <- (i + 1):(i + M)
-    ll <- log_lik(fit_star, newdata = df[ioos, , drop = FALSE], oos = oos)
-    loglik[, i + 1] <- ll[, i + 1]
-    # observations over which to perform importance sampling
-    ilr1 <- (i + 1):min(i + B, i_star)
-    logratio <- sum_log_ratios(loglik, ilr1)
-    # in the block version some observations need to be added back again
-    ilr2 <- seq_pos(max(i + B + 1, i_star + 1), min(i_star + B, N))
-    if (length(ilr2)) {
-      # observations in the left-out block are modeled as missing
-      ind_B <- (i + 1):(i + B)
-      subdf <- df[seq_len(max(ilr2)), , drop = FALSE]
-      ll_after_block <- log_lik(fit_star, newdata = subdf, oos = ind_B)
-      logratio <- logratio - sum_log_ratios(ll_after_block, ilr2) 
-    }
-    psis_part <- suppressWarnings(psis(logratio))
-    k <- pareto_k_values(psis_part)
-    ks[i] <- k
-    if (k > k_thres) {
-      # refit the model based on the first i observations
-      i_star <- i
-      refits <- c(refits, i)
-      ind_rm <- (i + 1):min(i + B, N)
-      newdf <- df
-      if (max(ind_rm) < N) {
-        # responses of the left-out block need to be coded as 
-        # missing to retain a single consistent time series
-        newdf$y[ind_rm] <- NA
-      } else {
-        newdf <- newdf[-ind_rm, , drop = FALSE]
-      }
-      fit_star <- update(fit, newdata = newdf, recompile = FALSE, refresh = 0)
-      conv[[i]] <- convergence_summary(fit_star)
-      # perform exact LFO for the ith observation
-      ll <- log_lik(fit_star, newdata = df[ioos, , drop = FALSE], oos = oos)
-      loglik[, i + 1] <- ll[, i + 1]
-      out[i] <- lfo_criterion(
-        fit_star, data = df[ioos, , drop = FALSE], 
-        oos = oos, criterion = criterion
-      )
-    } else {
-      # PSIS approximate LFO is possible
-      out[i] <- lfo_criterion(
-        fit_star, data = df[ioos, , drop = FALSE], oos = oos,
-        criterion = criterion, psis = psis_part
-      )
-    }
-  }
-  attr(out, "ks") <- ks
-  attr(out, "refits") <- refits
-  attr(out, "conv") <- conv
-  out
 }

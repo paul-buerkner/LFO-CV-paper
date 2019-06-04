@@ -1,6 +1,6 @@
 ---
 title: "LFO-CV of Cherry Blossoms Data"
-author: "Paul Bürkner & Aki Vehtari"
+author: "Paul Bürkner, Jonah Gabry, & Aki Vehtari"
 output:
   html_document:
     theme: default
@@ -58,31 +58,56 @@ fit_cb <- brm(
 plot(marginal_effects(fit_cb), points = TRUE)
 ```
 
-## LFO-CV with 1-SAP {.tabset}
-
 ```{r}
+N <- NROW(cherry_doy)
 L <- 100
-M <- 1
+k_thres <- 0.7
 ```
+
+## LFO-CV with 1-SAP {.tabset}
 
 ### ELPD
 
 Perform exact LFO-CV:
 ```{r}
 cb_elpd_1sap_exact <- compute_lfo(
-  fit_cb, type = "exact", M = M, L = L, 
+  fit_cb, type = "exact", M = 1, L = L, factorize = TRUE,
   file = "results/cb_elpd_1sap_exact.rds"
 )
-summarize_elpds(cb_elpd_1sap_exact)
 ```
 
-Perform approximate LFO-CV:
+Perform approximate LFO-CV (forward):
 ```{r}
-cb_elpd_1sap_approx <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, k_thres = 0.6,
-  file = "results/cb_elpd_1sap_approx.rds"
+cb_elpd_1sap_approx_fw <- compute_lfo(
+  fit_cb, type = "approx", M = 1, L = L, 
+  k_thres = k_thres, mode = "forward", factorize = TRUE,
+  file = "results/cb_elpd_1sap_approx_fw.rds"
 )
-summarize_elpds(cb_elpd_1sap_approx)
+```
+
+Perform approximate LFO-CV (backward):
+```{r}
+cb_elpd_1sap_approx_bw <- compute_lfo(
+  fit_cb, type = "approx", M = 1, L = L, 
+  k_thres = k_thres, mode = "backward", factorize = TRUE,
+  file = "results/cb_elpd_1sap_approx_bw.rds"
+)
+```
+
+Perform approximate LFO-CV (combined):
+```{r}
+cb_elpd_1sap_approx_cb <- compute_lfo(
+  fit_cb, type = "approx", M = 1, L = L, 
+  k_thres = k_thres, mode = "combined", factorize = TRUE,
+  file = "results/cb_elpd_1sap_approx_cb.rds"
+)
+```
+
+```{r}
+summarize_elpds(cb_elpd_1sap_exact)
+summarize_elpds(cb_elpd_1sap_approx_fw)
+summarize_elpds(cb_elpd_1sap_approx_bw)
+summarize_elpds(cb_elpd_1sap_approx_cb)
 ```
 
 Perform approximate LOO-CV:
@@ -90,79 +115,126 @@ Perform approximate LOO-CV:
 (loo_cb <- loo(fit_cb, newdata = cherry_doy[-seq_len(L), ]))
 ```
 
-Analysis of convergence:
+Analysis of convergence and pointwise accuracy:
 ```{r}
 conv_exact <- attributes(cb_elpd_1sap_exact)$conv
 names(conv_exact) <- seq_along(conv_exact)
 predicted <- !sapply(conv_exact, is.null)
 conv_exact <- conv_exact[predicted]
 
-conv_approx <- attributes(cb_elpd_1sap_approx)$conv
-names(conv_approx) <- seq_along(conv_approx)
-conv_approx <- conv_approx[predicted]
+conv_approx_fw <- attributes(cb_elpd_1sap_approx_fw)$conv
+names(conv_approx_fw) <- seq_along(conv_approx_fw)
+conv_approx_fw <- conv_approx_fw[predicted]
 
-conv_1sap <- tibble(
+conv_approx_bw <- attributes(cb_elpd_1sap_approx_bw)$conv
+names(conv_approx_bw) <- seq_along(conv_approx_bw)
+conv_approx_bw <- conv_approx_bw[predicted]
+
+conv_approx_cb <- attributes(cb_elpd_1sap_approx_cb)$conv
+names(conv_approx_cb) <- seq_along(conv_approx_cb)
+conv_approx_cb <- conv_approx_cb[predicted]
+
+cb_pw_elpd_1sap <- tibble(
   elpd_exact = na.omit(cb_elpd_1sap_exact),
-  elpd_approx = na.omit(cb_elpd_1sap_approx)
+  elpd_approx_fw = na.omit(cb_elpd_1sap_approx_fw),
+  elpd_approx_bw = na.omit(cb_elpd_1sap_approx_bw),
+  elpd_approx_cb = na.omit(cb_elpd_1sap_approx_cb),
 ) %>%
   mutate(
     i = L + 1:n(),
-    elpd_diff = elpd_approx - elpd_exact,
-    elpd_abs_diff = abs(elpd_diff),
+    elpd_diff_fw = elpd_approx_fw - elpd_exact,
+    elpd_abs_diff_fw = abs(elpd_diff_fw),
+    k_fw = na.omit(attributes(cb_elpd_1sap_approx_fw)$ks),
+    reff_fw = na.omit(attributes(cb_elpd_1sap_approx_fw)$reffs),
+    elpd_diff_bw = elpd_approx_bw - elpd_exact,
+    elpd_abs_diff_bw = abs(elpd_diff_bw),
+    k_bw = na.omit(attributes(cb_elpd_1sap_approx_bw)$ks),
+    reff_bw = na.omit(attributes(cb_elpd_1sap_approx_bw)$reffs),
+    elpd_diff_cb = elpd_approx_cb - elpd_exact,
+    elpd_abs_diff_cb = abs(elpd_diff_cb),
+    k_cb = na.omit(attributes(cb_elpd_1sap_approx_cb)$ks),
+    reff_cb = na.omit(attributes(cb_elpd_1sap_approx_cb)$reffs),
     conv_exact = conv_exact,
-    conv_approx = conv_approx
+    conv_approx_fw = conv_approx_fw,
+    conv_approx_bw = conv_approx_bw,
+    conv_approx_cb = conv_approx_cb
   ) %>%
-  arrange(desc(elpd_abs_diff))
-
-conv_1sap
+  arrange(desc(elpd_abs_diff_cb))
 ```
 
-### RMSE
-
-Perform exact LFO-CV:
+Plot khats:
 ```{r}
-# cb_rmse_1sap_exact <- compute_lfo(
-#   fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
-#   file = "results/cb_rmse_1sap_exact.rds"
-# )
-# summarize_elpds(cb_rmse_1sap_exact)
+plot_ks(cb_pw_elpd_1sap$k_fw, cb_pw_elpd_1sap$i, k_thres = k_thres)
+plot_ks(cb_pw_elpd_1sap$k_bw, cb_pw_elpd_1sap$i, k_thres = k_thres)
+plot_ks(cb_pw_elpd_1sap$k_cb, cb_pw_elpd_1sap$i, k_thres = k_thres)
 ```
 
-Perform approximate LFO-CV:
+Plot relative efficiencies:
 ```{r}
-# cb_rmse_1sap_approx <- compute_lfo(
-#   fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
-#   file = "results/cb_rmse_1sap_approx.rds"
-# )
-# summarize_elpds(cb_rmse_1sap_approx)
+cb_pw_elpd_1sap %>% 
+  gather("mode", "reff", starts_with("reff")) %>%
+  ggplot(aes(i, reff)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_point()
+```
+
+Plot pointwise accuracies:
+```{r}
+cb_pw_elpd_1sap %>% 
+  gather("mode", "elpd_approx", starts_with("elpd_approx")) %>%
+  ggplot(aes(elpd_exact, elpd_approx)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_abline(slope = 1) +
+  geom_point() +
+  labs(y = "Approximate ELPD", x = "Exact ELPD") + 
+  theme_bw()
 ```
 
 
 ## LFO-CV with 4-SAP {.tabset}
-
-```{r}
-L <- 100
-M <- 4
-```
 
 ### ELPD
 
 Perform exact LFO-CV:
 ```{r}
 cb_elpd_4sap_exact <- compute_lfo(
-  fit_cb, type = "exact", M = M, L = L, 
+  fit_cb, type = "exact", M = 4, L = L, factorize = TRUE,
   file = "results/cb_elpd_4sap_exact.rds"
 )
-summarize_elpds(cb_elpd_4sap_exact) 
 ```
 
-Perform approximate LFO-CV:
+Perform approximate LFO-CV (forward):
 ```{r}
-cb_elpd_4sap_approx <- compute_lfo(
-  fit_cb, type = "approx", M = M, L = L, k_thres = 0.6,
-  file = "results/cb_elpd_4sap_approx.rds"
+cb_elpd_4sap_approx_fw <- compute_lfo(
+  fit_cb, type = "approx", M = 4, L = L, 
+  k_thres = k_thres, mode = "forward", factorize = TRUE,
+  file = "results/cb_elpd_4sap_approx_fw.rds"
 )
-summarize_elpds(cb_elpd_4sap_approx)
+```
+
+Perform approximate LFO-CV (backward):
+```{r}
+cb_elpd_4sap_approx_bw <- compute_lfo(
+  fit_cb, type = "approx", M = 4, L = L, 
+  k_thres = k_thres, mode = "backward", factorize = TRUE,
+  file = "results/cb_elpd_4sap_approx_bw.rds"
+)
+```
+
+Perform approximate LFO-CV (combined):
+```{r}
+cb_elpd_4sap_approx_cb <- compute_lfo(
+  fit_cb, type = "approx", M = 4, L = L, 
+  k_thres = k_thres, mode = "combined", factorize = TRUE,
+  file = "results/cb_elpd_4sap_approx_cb.rds"
+)
+```
+
+```{r}
+summarize_elpds(cb_elpd_4sap_exact)
+summarize_elpds(cb_elpd_4sap_approx_fw)
+summarize_elpds(cb_elpd_4sap_approx_bw)
+summarize_elpds(cb_elpd_4sap_approx_cb)
 ```
 
 Analysis of convergence:
@@ -172,42 +244,71 @@ names(conv_exact) <- seq_along(conv_exact)
 predicted <- !sapply(conv_exact, is.null)
 conv_exact <- conv_exact[predicted]
 
-conv_approx <- attributes(cb_elpd_4sap_approx)$conv
-names(conv_approx) <- seq_along(conv_approx)
-conv_approx <- conv_approx[predicted]
+conv_approx_fw <- attributes(cb_elpd_4sap_approx_fw)$conv
+names(conv_approx_fw) <- seq_along(conv_approx_fw)
+conv_approx_fw <- conv_approx_fw[predicted]
 
-conv_4sap <- tibble(
+conv_approx_bw <- attributes(cb_elpd_4sap_approx_bw)$conv
+names(conv_approx_bw) <- seq_along(conv_approx_bw)
+conv_approx_bw <- conv_approx_bw[predicted]
+
+conv_approx_cb <- attributes(cb_elpd_4sap_approx_cb)$conv
+names(conv_approx_cb) <- seq_along(conv_approx_cb)
+conv_approx_cb <- conv_approx_cb[predicted]
+
+cb_pw_elpd_4sap <- tibble(
   elpd_exact = na.omit(cb_elpd_4sap_exact),
-  elpd_approx = na.omit(cb_elpd_4sap_approx)
+  elpd_approx_fw = na.omit(cb_elpd_4sap_approx_fw),
+  elpd_approx_bw = na.omit(cb_elpd_4sap_approx_bw),
+  elpd_approx_cb = na.omit(cb_elpd_4sap_approx_cb)
 ) %>%
   mutate(
     i = L + 1:n(),
-    elpd_diff = elpd_approx - elpd_exact,
-    elpd_abs_diff = abs(elpd_diff),
+    elpd_diff_fw = elpd_approx_fw - elpd_exact,
+    elpd_abs_diff_fw = abs(elpd_diff_fw),
+    k_fw = na.omit(attributes(cb_elpd_4sap_approx_fw)$ks),
+    reff_fw = na.omit(attributes(cb_elpd_4sap_approx_fw)$reffs),
+    elpd_diff_bw = elpd_approx_bw - elpd_exact,
+    elpd_abs_diff_bw = abs(elpd_diff_bw),
+    k_bw = na.omit(attributes(cb_elpd_4sap_approx_bw)$ks),
+    reff_bw = na.omit(attributes(cb_elpd_4sap_approx_bw)$reffs),
+    elpd_diff_cb = elpd_approx_cb - elpd_exact,
+    elpd_abs_diff_cb = abs(elpd_diff_cb),
+    k_cb = na.omit(attributes(cb_elpd_4sap_approx_cb)$ks),
+    reff_cb = na.omit(attributes(cb_elpd_4sap_approx_cb)$reffs),
     conv_exact = conv_exact,
-    conv_approx = conv_approx
+    conv_approx_fw = conv_approx_fw,
+    conv_approx_bw = conv_approx_bw,
+    conv_approx_cb = conv_approx_cb
   ) %>%
-  arrange(desc(elpd_abs_diff))
-
-conv_4sap
+  arrange(desc(elpd_abs_diff_cb))
 ```
 
-### RMSE
-
-Perform exact LFO-CV:
+Plot khats:
 ```{r}
-# cb_rmse_4sap_exact <- compute_lfo(
-#   fit_cb, type = "exact", M = M, L = L, criterion = "rmse",
-#   file = "results/cb_rmse_4sap_exact.rds"
-# )
-# summarize_elpds(cb_rmse_4sap_exact)
+plot_ks(cb_pw_elpd_4sap$k_fw, cb_pw_elpd_4sap$i, k_thres = k_thres)
+plot_ks(cb_pw_elpd_4sap$k_bw, cb_pw_elpd_4sap$i, k_thres = k_thres)
+plot_ks(cb_pw_elpd_4sap$k_cb, cb_pw_elpd_4sap$i, k_thres = k_thres)
 ```
 
-Perform approximate LFO-CV:
+Plot relative efficiencies:
 ```{r}
-# cb_rmse_4sap_approx <- compute_lfo(
-#   fit_cb, type = "approx", M = M, L = L, criterion = "rmse",
-#   file = "results/cb_rmse_4sap_approx.rds"
-# )
-# summarize_elpds(cb_rmse_4sap_approx)
+cb_pw_elpd_4sap %>% 
+  gather("mode", "reff", starts_with("reff")) %>%
+  ggplot(aes(i, reff)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_point()
 ```
+
+Plot pointwise accuracies:
+```{r}
+cb_pw_elpd_4sap %>% 
+  gather("mode", "elpd_approx", starts_with("elpd_approx")) %>%
+  ggplot(aes(elpd_exact, elpd_approx)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_abline(slope = 1) +
+  geom_point() +
+  labs(y = "Approximate ELPD", x = "Exact ELPD") + 
+  theme_bw()
+```
+

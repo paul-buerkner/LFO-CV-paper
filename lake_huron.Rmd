@@ -1,6 +1,6 @@
 ---
 title: "LFO-CV of Lake Huron Data"
-author: "Paul Bürkner & Aki Vehtari"
+author: "Paul Bürkner, Jonah Gabry, & Aki Vehtari"
 output:
   html_document:
     theme: default
@@ -56,7 +56,7 @@ fit_lh <- brm(
   data = df, 
   autocor = cor_ar(~time, p = 4), 
   prior = prior(normal(0, 0.5), class = "ar"),
-  chains = 2, warmup = 1000, iter = 5000,
+  chains = 2, warmup = 1000, iter = 4000,
   control = list(adapt_delta = 0.99),
   seed = 5838296, file = "models/fit_lh"
 )
@@ -77,195 +77,293 @@ ggplot(cbind(df, preds), aes(x = year, y = Estimate)) +
   labs(y = "Water Level (ft)", x = "Year")
 ```
 
-## LFO-CV of 1-SAP {.tabset}
-
 ```{r}
 L <- 20
-M <- 1
+k_thres <- 0.7
 ```
+
+## LFO-CV of 1-SAP {.tabset}
 
 ### ELPD
 
 ```{r, results="hide", warning=FALSE, message=FALSE}
 lh_elpd_1sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, 
+  fit_lh, type = "exact", M = 1, L = L,
   file = "results/lh_elpd_1sap_exact.rds"
 )
-lh_elpd_1sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, 
-  file = "results/lh_elpd_1sap_approx.rds"
+lh_elpd_1sap_approx_fw <- compute_lfo(
+  fit_lh, type = "approx", M = 1, L = L, 
+  k_thres = k_thres, mode = "forward",
+  file = "results/lh_elpd_1sap_approx_fw.rds"
+)
+lh_elpd_1sap_approx_bw <- compute_lfo(
+  fit_lh, type = "approx", M = 1, L = L, 
+  k_thres = k_thres, mode = "backward",
+  file = "results/lh_elpd_1sap_approx_bw.rds"
+)
+lh_elpd_1sap_approx_cb <- compute_lfo(
+  fit_lh, type = "approx", M = 1, L = L, 
+  k_thres = k_thres, mode = "combined",
+  file = "results/lh_elpd_1sap_approx_cb.rds"
 )
 ```
 
 ```{r}
 summarize_elpds(lh_elpd_1sap_exact)
-summarize_elpds(lh_elpd_1sap_approx)
-```
-
-```{r}
-ks <- na.omit(attributes(lh_elpd_1sap_approx)$ks)
-ids <- (L + 1):N
-plot_ks(ks, ids)
+summarize_elpds(lh_elpd_1sap_approx_fw)
+summarize_elpds(lh_elpd_1sap_approx_bw)
+summarize_elpds(lh_elpd_1sap_approx_cb)
 ```
 
 Perform approximate LOO-CV:
 ```{r}
-(loo_lh <- loo(fit_lh, newdata = df[-seq_len(L), ]))
+(loo_lh <- loo(log_lik(fit_lh)[, (L + 1):N]))
+```
+
+Analysis of convergence and pointwise accuracy:
+```{r}
+lh_pw_elpd_1sap <- tibble(
+  i = L:(N - 1),
+  elpd_exact = na.omit(lh_elpd_1sap_exact),
+  elpd_approx_fw = na.omit(lh_elpd_1sap_approx_fw),
+  k_fw = na.omit(attributes(lh_elpd_1sap_approx_fw)$ks),
+  reff_fw = na.omit(attributes(lh_elpd_1sap_approx_fw)$reffs),
+  elpd_approx_bw = na.omit(lh_elpd_1sap_approx_bw),
+  k_bw = na.omit(attributes(lh_elpd_1sap_approx_bw)$ks),
+  reff_bw = na.omit(attributes(lh_elpd_1sap_approx_bw)$reffs),
+  elpd_approx_cb = na.omit(lh_elpd_1sap_approx_cb),
+  k_cb = na.omit(attributes(lh_elpd_1sap_approx_cb)$ks),
+  reff_cb = na.omit(attributes(lh_elpd_1sap_approx_cb)$reffs)
+)
+```
+
+Plot khats:
+```{r}
+plot_ks(lh_pw_elpd_1sap$k_fw, lh_pw_elpd_1sap$i, k_thres = k_thres)
+plot_ks(lh_pw_elpd_1sap$k_bw, lh_pw_elpd_1sap$i, k_thres = k_thres)
+plot_ks(lh_pw_elpd_1sap$k_cb, lh_pw_elpd_1sap$i, k_thres = k_thres)
+```
+
+Plot relative efficiencies:
+```{r}
+lh_pw_elpd_1sap %>% 
+  gather("mode", "reff", starts_with("reff")) %>%
+  ggplot(aes(i, reff)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_point()
+```
+
+Plot pointwise accuracies:
+```{r}
+lh_pw_elpd_1sap %>% 
+  gather("mode", "elpd_approx", starts_with("elpd_approx")) %>%
+  ggplot(aes(elpd_exact, elpd_approx)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_abline(slope = 1) +
+  geom_point() +
+  labs(y = "Approximate ELPD", x = "Exact ELPD") + 
+  theme_bw()
 ```
 
 ### RMSE
 
 ```{r, results="hide", warning=FALSE, message=FALSE}
 lh_rmse_1sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, criterion = "rmse",
+  fit_lh, type = "exact", M = 1, L = L, 
+  criterion = "rmse", 
   file = "results/lh_rmse_1sap_exact.rds"
 )
-lh_rmse_1sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, criterion = "rmse",
-  file = "results/lh_rmse_1sap_approx.rds"
+lh_rmse_1sap_approx_fw <- compute_lfo(
+  fit_lh, type = "approx", M = 1, L = L, 
+  criterion = "rmse", k_thres = k_thres, mode = "forward",
+  file = "results/lh_rmse_1sap_approx_fw.rds"
+)
+lh_rmse_1sap_approx_bw <- compute_lfo(
+  fit_lh, type = "approx", M = 1, L = L, 
+  criterion = "rmse", k_thres = k_thres, mode = "backward",
+  file = "results/lh_rmse_1sap_approx_bw.rds"
+)
+lh_rmse_1sap_approx_cb <- compute_lfo(
+  fit_lh, type = "approx", M = 1, L = L, 
+  criterion = "rmse", k_thres = k_thres, mode = "combined",
+  file = "results/lh_rmse_1sap_approx_cb.rds"
 )
 ```
 
 ```{r}
 summarize_elpds(lh_rmse_1sap_exact)
-summarize_elpds(lh_rmse_1sap_approx)
+summarize_elpds(lh_rmse_1sap_approx_fw)
+summarize_elpds(lh_rmse_1sap_approx_bw)
+summarize_elpds(lh_rmse_1sap_approx_cb)
 ```
+
+Analysis of pointwise accuracy:
+```{r}
+lh_pw_rmse_1sap <- tibble(
+  i = L:(N - 1),
+  rmse_exact = na.omit(lh_rmse_1sap_exact),
+  rmse_approx_fw = na.omit(lh_rmse_1sap_approx_fw),
+  k_fw = na.omit(attributes(lh_rmse_1sap_approx_fw)$ks),
+  reff_fw = na.omit(attributes(lh_rmse_1sap_approx_fw)$reffs),
+  rmse_approx_bw = na.omit(lh_rmse_1sap_approx_bw),
+  k_bw = na.omit(attributes(lh_rmse_1sap_approx_bw)$ks),
+  reff_bw = na.omit(attributes(lh_rmse_1sap_approx_bw)$reffs),
+  rmse_approx_cb = na.omit(lh_rmse_1sap_approx_cb),
+  k_cb = na.omit(attributes(lh_rmse_1sap_approx_cb)$ks),
+  reff_cb = na.omit(attributes(lh_rmse_1sap_approx_cb)$reffs)
+)
+```
+
+Plot pointwise accuracies:
+```{r}
+lh_pw_rmse_1sap %>% 
+  gather("mode", "rmse_approx", starts_with("rmse_approx")) %>%
+  ggplot(aes(rmse_exact, rmse_approx)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_abline(slope = 1) +
+  geom_point() +
+  labs(y = "Approximate RMSE", x = "Exact RMSE") + 
+  theme_bw()
+```
+
 
 
 ## LFO-CV of 4-SAP {.tabset}
-
-```{r}
-L <- 20
-M <- 4
-```
 
 ### ELPD
 
 ```{r, results="hide", warning=FALSE, message=FALSE}
 lh_elpd_4sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, 
+  fit_lh, type = "exact", M = 4, L = L,
   file = "results/lh_elpd_4sap_exact.rds"
 )
-lh_elpd_4sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, 
-  file = "results/lh_elpd_4sap_approx.rds"
+lh_elpd_4sap_approx_fw <- compute_lfo(
+  fit_lh, type = "approx", M = 4, L = L,
+  k_thres = k_thres, mode = "forward",
+  file = "results/lh_elpd_4sap_approx_fw.rds"
+)
+lh_elpd_4sap_approx_bw <- compute_lfo(
+  fit_lh, type = "approx", M = 4, L = L, 
+  k_thres = k_thres, mode = "backward",
+  file = "results/lh_elpd_4sap_approx_bw.rds"
+)
+lh_elpd_4sap_approx_cb <- compute_lfo(
+  fit_lh, type = "approx", M = 4, L = L, 
+  k_thres = k_thres, mode = "combined",
+  file = "results/lh_elpd_4sap_approx_cb.rds"
 )
 ```
 
 ```{r}
 summarize_elpds(lh_elpd_4sap_exact)
-summarize_elpds(lh_elpd_4sap_approx)
+summarize_elpds(lh_elpd_4sap_approx_fw)
+summarize_elpds(lh_elpd_4sap_approx_bw)
+summarize_elpds(lh_elpd_4sap_approx_cb)
 ```
+
+Analysis of pointwise accuracy:
+```{r}
+lh_pw_elpd_4sap <- tibble(
+  i = L:(N - 4),
+  elpd_exact = na.omit(lh_elpd_4sap_exact),
+  elpd_approx_fw = na.omit(lh_elpd_4sap_approx_fw),
+  k_fw = na.omit(attributes(lh_elpd_4sap_approx_fw)$ks),
+  reff_fw = na.omit(attributes(lh_elpd_4sap_approx_fw)$reffs),
+  elpd_approx_bw = na.omit(lh_elpd_4sap_approx_bw),
+  k_bw = na.omit(attributes(lh_elpd_4sap_approx_bw)$ks),
+  reff_bw = na.omit(attributes(lh_elpd_4sap_approx_bw)$reffs),
+  elpd_approx_cb = na.omit(lh_elpd_4sap_approx_cb),
+  k_cb = na.omit(attributes(lh_elpd_4sap_approx_cb)$ks),
+  reff_cb = na.omit(attributes(lh_elpd_4sap_approx_cb)$reffs)
+)
+```
+
+Plot khats:
+```{r}
+plot_ks(lh_pw_elpd_4sap$k_fw, lh_pw_elpd_4sap$i, k_thres = k_thres)
+plot_ks(lh_pw_elpd_4sap$k_bw, lh_pw_elpd_4sap$i, k_thres = k_thres)
+plot_ks(lh_pw_elpd_4sap$k_cb, lh_pw_elpd_4sap$i, k_thres = k_thres)
+```
+
+Plot relative efficiencies:
+```{r}
+lh_pw_elpd_4sap %>% 
+  gather("mode", "reff", starts_with("reff")) %>%
+  ggplot(aes(i, reff)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_point()
+```
+
+Plot pointwise accuracies:
+```{r}
+lh_pw_elpd_4sap %>% 
+  gather("mode", "elpd_approx", starts_with("elpd_approx")) %>%
+  ggplot(aes(elpd_exact, elpd_approx)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_abline(slope = 1) +
+  geom_point() +
+  labs(y = "Approximate ELPD", x = "Exact ELPD") + 
+  theme_bw()
+```
+
 
 ### RMSE
 
 ```{r, results="hide", warning=FALSE, message=FALSE}
 lh_rmse_4sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, criterion = "rmse",
+  fit_lh, type = "exact", M = 4, L = L, 
+  criterion = "rmse",
   file = "results/lh_rmse_4sap_exact.rds"
 )
-lh_rmse_4sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, criterion = "rmse",
-  file = "results/lh_rmse_4sap_approx.rds"
+lh_rmse_4sap_approx_fw <- compute_lfo(
+  fit_lh, type = "approx", M = 4, L = L, 
+  criterion = "rmse", k_thres = k_thres, mode = "forward",
+  file = "results/lh_rmse_4sap_approx_fw.rds"
+)
+lh_rmse_4sap_approx_bw <- compute_lfo(
+  fit_lh, type = "approx", M = 4, L = L, 
+  criterion = "rmse", k_thres = k_thres, mode = "backward",
+  file = "results/lh_rmse_4sap_approx_bw.rds"
+)
+lh_rmse_4sap_approx_cb <- compute_lfo(
+  fit_lh, type = "approx", M = 4, L = L, 
+  criterion = "rmse", k_thres = k_thres, mode = "combined",
+  file = "results/lh_rmse_4sap_approx_cb.rds"
 )
 ```
 
 ```{r}
 summarize_elpds(lh_rmse_4sap_exact)
-summarize_elpds(lh_rmse_4sap_approx)
+summarize_elpds(lh_rmse_4sap_approx_fw)
+summarize_elpds(lh_rmse_4sap_approx_bw)
+summarize_elpds(lh_rmse_4sap_approx_cb)
 ```
 
-## LFO-CV of block-1-SAP {.tabset}
-
+Analysis of pointwise accuracy:
 ```{r}
-L <- 20
-M <- 1
-B <- 10
-```
-
-### ELPD
-
-```{r, results="hide", warning=FALSE, message=FALSE}
-lh_elpd_block1sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, B = B,
-  file = "results/lh_elpd_block1sap_exact.rds"
-)
-lh_elpd_block1sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, B = B,
-  file = "results/lh_elpd_block1sap_approx.rds"
+lh_pw_rmse_4sap <- tibble(
+  i = L:(N - 4),
+  rmse_exact = na.omit(lh_rmse_4sap_exact),
+  rmse_approx_fw = na.omit(lh_rmse_4sap_approx_fw),
+  k_fw = na.omit(attributes(lh_rmse_4sap_approx_fw)$ks),
+  reff_fw = na.omit(attributes(lh_rmse_4sap_approx_fw)$reffs),
+  rmse_approx_bw = na.omit(lh_rmse_4sap_approx_bw),
+  k_bw = na.omit(attributes(lh_rmse_4sap_approx_bw)$ks),
+  reff_bw = na.omit(attributes(lh_rmse_4sap_approx_bw)$reffs),
+  rmse_approx_cb = na.omit(lh_rmse_4sap_approx_cb),
+  k_cb = na.omit(attributes(lh_rmse_4sap_approx_cb)$ks),
+  reff_cb = na.omit(attributes(lh_rmse_4sap_approx_cb)$reffs)
 )
 ```
 
+Plot pointwise accuracies:
 ```{r}
-summarize_elpds(lh_elpd_block1sap_exact)
-summarize_elpds(lh_elpd_block1sap_approx)
-```
-
-```{r}
-ks <- na.omit(attributes(lh_elpd_block1sap_approx)$ks)
-ids <- (L + 1):N
-plot_ks(ks, ids)
-```
-
-### RMSE
-
-```{r, results="hide", warning=FALSE, message=FALSE}
-lh_rmse_block1sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, B = B, criterion = "rmse",
-  file = "results/lh_rmse_block1sap_exact.rds"
-)
-lh_rmse_block1sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, B = B, criterion = "rmse",
-  file = "results/lh_rmse_block1sap_approx.rds"
-)
-```
-
-```{r}
-summarize_elpds(lh_rmse_block1sap_exact)
-summarize_elpds(lh_rmse_block1sap_approx)
-```
-
-
-## LFO-CV of block-4-SAP {.tabset}
-
-```{r}
-L <- 20
-M <- 4
-B <- 10
-```
-
-### ELPD
-
-```{r, results="hide", warning=FALSE, message=FALSE}
-lh_elpd_block4sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, B = B,
-  file = "results/lh_elpd_block4sap_exact.rds"
-)
-lh_elpd_block4sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, B = B,
-  file = "results/lh_elpd_block4sap_approx.rds"
-)
-```
-
-```{r}
-summarize_elpds(lh_elpd_block4sap_exact)
-summarize_elpds(lh_elpd_block4sap_approx)
-```
-
-### RMSE
-
-```{r, results="hide", warning=FALSE, message=FALSE}
-lh_rmse_block4sap_exact <- compute_lfo(
-  fit_lh, type = "exact", M = M, L = L, B = B, criterion = "rmse",
-  file = "results/lh_rmse_block4sap_exact.rds"
-)
-lh_rmse_block4sap_approx <- compute_lfo(
-  fit_lh, type = "approx", M = M, L = L, B = B, criterion = "rmse",
-  file = "results/lh_rmse_block4sap_approx.rds"
-)
-```
-
-```{r}
-summarize_elpds(lh_rmse_block4sap_exact)
-summarize_elpds(lh_rmse_block4sap_approx)
+lh_pw_rmse_4sap %>% 
+  gather("mode", "rmse_approx", starts_with("rmse_approx")) %>%
+  ggplot(aes(rmse_exact, rmse_approx)) +
+  facet_wrap(facets = "mode", nrow = 1, ncol = 3, scales = "free") +
+  geom_abline(slope = 1) +
+  geom_point() +
+  labs(y = "Approximate RMSE", x = "Exact RMSE") + 
+  theme_bw()
 ```
