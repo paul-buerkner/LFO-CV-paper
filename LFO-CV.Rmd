@@ -142,7 +142,7 @@ In this paper, we extend the ideas from PSIS-LOO-CV and present PSIS-LFO-CV, an
 algorithm that typically only requires refitting a time-series model a small
 number times. This will make LFO-CV tractable for many more realistic
 applications than previously possible, including time series model averaging
-using stacking of predictive distributions [@yao2018].
+using stacking of predictive distributions [@yao2018]. 
 
 The structure of the paper is as follows. In Section \@ref(m-sap), we introduce
 the idea and various forms of $M$-step-ahead predictions and how to approximate
@@ -439,15 +439,34 @@ appropriate thresholds in Section \@ref(simulations).
 
 The above described algorithm has some similarities with sequential Monte Carlo
 (SMC), also known as partical or Monte Carlo filtering [e.g., @gordon1993;
-@kitagawa1996; @andrieu2010]. When applying SMC to state space models, we move
+@kitagawa1996; @doucet2000; @andrieu2010]. When applying SMC to state space models, we move
 forward in time and use importance sampling to approximate the current state
 using the information in the preciding states [@kitagawa1996; @andrieu2010]. The
 focus of SMC in such a context is the estimation of a model's posterior
 distribution (or certain parts of it), whereas, in our approach, we focus on the
 its predictive performance. Further, we apply a full recomputation of the model
 via Markov chain Monte Carlo (MCMC) once Pareto-smoothed importance sampling
-fails [see @andrieu2010 for an estimation algorithm combining SMC and
-MCMC to estimate state space models].
+fails.
+
+Our algorithm makes to important assumptions. First, it assumes that we can fit
+the time-series model with the full data or subsets of the data (until a given
+point in time) using generic probabilistic programming frameworks, such as Stan
+[@carpenter2017], JAGS [@jags], PyMC3 [@pymc3] or Pyro [@pyro]. These frameworks
+have become very popular in recent years also for the analysis of time-series
+models, despite the availability of sequential estimation procedures [e.g.,
+@doucet2000; @andrieu2010]. Therefore, providing efficient cross-validation
+methods for time-series models estimated via generic frameworks is of great
+practical relevance. It is likely that PSIS-LFO-CV can be implemented for
+sequential frameworks as well, or may even be computable as a by-product of their
+estimation procedure, but this is outside the scope of the present paper.
+Second, the efficiency of our algorithm as compared to exact LFO-CV relies on
+the ability to compute samples from the posterior predictive density (required
+for importance sampling) much more quickly than the time it takes to fully refit
+the model. This assumption is most likely justified when estimating a model
+using full Bayesian inference via MCMC or related methods as they are
+computationally very intensive. Importantely, we do not make any assumptions of
+*how* samples from the posterior or the posterior predictive density at a given
+point in time have been obtained.
 
 Instead of moving forward in time, it is also possible to move backwards. When
 performing this backward PSIS-LFO-CV, we approximate the target posterior
