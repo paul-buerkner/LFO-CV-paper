@@ -3,7 +3,7 @@ title: "Approximate leave-future-out cross-validation for Bayesian time series m
 author: "Paul-Christian Bürkner $^{1*}$, Jonah Gabry $^2$, & Aki Vehtari $^3$"
 date: |
   $^1$ Department of Psychology, University of Münster, Germany \break
-  $^2$ Institute for Social and Economic Research in Policy, Columbia University, USA \break
+  $^2$ Applied Statistics Center and ISERP, Columbia University, USA \break
   $^3$ Department of Computer Science, Aalto University, Finland\break
   $^*$ Corresponding author, Email: paul.buerkner@gmail.com
 abstract: |
@@ -11,13 +11,13 @@ abstract: |
   to inform predictions for future observations. In the absence of any actual
   new data to predict, cross-validation can be used to estimate a model's future
   predictive accuracy, for instance, for the purpose of model comparison or
-  selection. As exact cross-validation for Bayesian models is often
-  computationally expensive, approximate cross-validation methods have been
-  developed; most notably methods for leave-one-out cross-validation (LOO-CV).
+  selection. Exact cross-validation for Bayesian models is often
+  computationally expensive, but approximate cross-validation methods have been
+  developed, most notably methods for leave-one-out cross-validation (LOO-CV).
   If the actual prediction task is to predict the future given the past, LOO-CV
-  provides an overly optimistic estimate as the information from future
-  observations is available to influence predictions of the past. To tackle the
-  prediction task properly and account for the time series structure, we can use
+  provides an overly optimistic estimate because the information from future
+  observations is available to influence predictions of the past. To properly 
+  account for the time series structure, we can use
   leave-future-out cross-validation (LFO-CV). Like exact LOO-CV, exact LFO-CV
   requires refitting the model many times to different subsets of the data.
   Using Pareto smoothed importance sampling, we propose a method for
@@ -119,40 +119,39 @@ model $N$ times, each time leaving out one of the $N$ observations and assessing
 how well the model predicts the left-out observation. Due to the number of
 required refits, exact LOO-CV is computationally expensive, in particular when
 performing full Bayesian inference and refitting the model means estimating a
-new posterior distribution rather than a point estimate. But it is it is
-possible to approximate exact LOO-CV using Pareto smoothed importance sampling
-[PSIS; @vehtari2017loo; @vehtari2017psis]. PSIS-LOO-CV only requires a single
-fit of the full model and has sensitive diagnostics for assessing the validity
-of the approximation.
+new posterior distribution rather than a point estimate. But it is possible to
+approximate exact LOO-CV using Pareto smoothed importance sampling 
+[PSIS; @vehtari2017loo; @vehtari2017psis]. 
+PSIS-LOO-CV only requires a single fit of the full model and has sensitive
+diagnostics for assessing the validity of the approximation.
 
-However, LOO-CV is problematic for times series models if the goal is to
-estimate the predictive performance for future time points. In that case,
-leaving out only one observation at a time will allow information from the
-future to influence predictions of the past (i.e., times $t+1, t+2, \ldots$
-would be used to predict time $t$). Instead, to apply the idea of
-cross-validation to the $M$-SAP case we can use what we will refer to as
-leave-*future*-out cross-validation (LFO-CV). LFO-CV does not refer to one
-particular prediction task but rather to various possible cross-validation
-approaches that all involve some form of prediction of future time points. Like
-exact LOO-CV, exact LFO-CV requires refitting the model many times to different
-subsets of the data, which is computationally expensive, in particular when
-performing full Bayesian inference.
+However, using LOO-CV with times series models is problematic if the goal is to
+estimate the predictive performance for future time points. Leaving out only one
+observation at a time will allow information from the future to influence
+predictions of the past (i.e., data from times $t+1, t+2, \ldots$ would inform
+predictions for time $t$). Instead, to apply the idea of cross-validation to the
+$M$-SAP case we can use what we will refer to as leave-*future*-out
+cross-validation (LFO-CV). LFO-CV does not refer to one particular prediction
+task but rather to various possible cross-validation approaches that all involve
+some form of prediction of future time points.
 
-In this paper, we extend the ideas from PSIS-LOO-CV and present PSIS-LFO-CV, an
-algorithm that typically only requires refitting a time-series model a small
-number times. This will make LFO-CV tractable for many more realistic
-applications than previously possible, including time series model averaging
-using stacking of predictive distributions [@yao2018]. 
+Like exact LOO-CV, exact LFO-CV requires refitting the model many times to
+different subsets of the data, which is computationally expensive, in particular
+for full Bayesian inference. In this paper, we extend the ideas from PSIS-LOO-CV
+and present PSIS-LFO-CV, an algorithm that typically only requires refitting a
+time-series model a small number times. This will make LFO-CV tractable for many
+more realistic applications than previously possible, including time series
+model averaging using stacking of predictive distributions [@yao2018].
 
 The structure of the paper is as follows. In Section \@ref(m-sap), we introduce
-the idea and various forms of $M$-step-ahead predictions and how to approximate
+the idea and various forms of $M$-step-ahead prediction and how to approximate
 them using PSIS. In Section \@ref(simulations), we evaluate the accuracy of the
 approximation using extensive simulations. Then, in Section \@ref(case-studies),
-we provide two real world case studies. One analyzing the change in level of
-Lake Huron and the other examining when the annual day of the cherry blossoms in
-Kyoto, Japan occurred, with the timeline starting in the 9th century. We end in
-Section \@ref(discussion) with a discussion of the usefulness and limitations of
-our approach.
+we provide two case studies demonstrating the application of PSIS-LFO-CV methods
+to real data sets. In the first we model changes in the water level of Lake
+Huron and in the second the date of the yearly cherry blossom in Kyoto. We end
+in Section \@ref(discussion) with a discussion of the usefulness and limitations
+of our approach.
 
 # $M$-step-ahead predictions {#m-sap}
 
@@ -177,7 +176,7 @@ p(y_{i+1:M} \,|\, y_{1:i}) =
 for each $i \in \{L, \ldots, N - M\}$, where we use 
 $y_{i+1:M} = (y_{i+1}, \ldots, y_{i + M})$ and $y_{1:i} = (y_{1}, \ldots, y_{i})$ 
 to shorten the notation. As a global measure of predictive accuracy, we
-can use the expected log posterior density [ELPD; @vehtari2017loo], which, 
+can use the expected log predictive density [ELPD; @vehtari2017loo], which, 
 for M-SAP, can be defined as
 
 \begin{equation}
@@ -244,31 +243,31 @@ p(y_{i+1:M} \,|\, y_{1:i}) \approx \frac{1}{S}
 \sum_{s=1}^S p(y_{i+1:M} \,|\, y_{1:i}, \theta_{1:i}^{(s)}).
 \end{equation}
 
-In this paper, we focus on the ELPD as a measure of predictive accuracy.
-However, $M$-SAP and its approximations introduced in the following may as well
-be based on other global measures of accuracy such as the root mean squared
-error (RMSE) or the median absolute deviation (MAD). Our computer code provided
-on GitHub (https://github.com/paul-buerkner/LFO-CV-paper) is modularized to
-support arbitrary measures of accuracy as long as the can be represented in a
-pointwise manner, that is, as increments per observation.
+In this paper we focus on the ELPD as a measure of predictive accuracy, but
+$M$-SAP (and the approximations we introduce below) may also be based on other
+global measures of accuracy such as the root mean squared error (RMSE) or the
+median absolute deviation (MAD). The code we provide on GitHub
+(https://github.com/paul-buerkner/LFO-CV-paper) is modularized to support
+arbitrary measures of accuracy as long as they can be represented in a pointwise
+manner, that is, as increments per observation.
 
 
 ## Approximate $M$-step-ahead predictions {#approximate-MSAP}
 
-The above equations include the posterior distributions from many
+The equations above make use of posterior distributions from many
 different fits of the model to different subsets of the data. To obtain
 the predictive density $p(y_{i+1:M} \,|\, y_{1:i})$, a model is fit to
-only the first $i$ data points, and we will need to do this for every value of
-$i$ under consideration (i.e., all $i \in \{L, \ldots, N - Mlog_PSIS_weights\}$).
-Below, we will present a new algorithm to reduce the number of models that need
-to be fit for the purpose of obtaining each of the densities $p(y_{i+1:M} \,|\,
-y_{1:i})$. This algorithm relies in a central manner on Pareto smoothed
-importance sampling [@vehtari2017loo; @vehtari2017psis], which we will briefly
-review next.
+only the first $i$ data points, and we need to do this for every value of
+$i$ under consideration (i.e., all $i \in \{L, \ldots, N - M\}$).
+Below, we present a new algorithm to reduce the number of models that need
+to be fit for the purpose of obtaining each of the densities 
+$p(y_{i+1:M} \,|\, y_{1:i})$. This algorithm relies in a central manner on
+Pareto smoothed importance sampling [@vehtari2017loo; @vehtari2017psis], which
+we will briefly review next.
 
 ### Pareto smoothed importance sampling {#psis}
 
-Importance sampling is a technique for compute expectations with
+Importance sampling is a technique for computing expectations with
 respect to some target distribution using an approximating proposal distribution
 that is easier to draw samples from than the actual target. If $f(\theta)$ is
 the target and $g(\theta)$ is the proposal distribution, we can write any
@@ -296,38 +295,41 @@ approximate
 \end{equation}
 
 provided that we can compute the raw importance ratios $r(\theta^{(s)})$ up to
-some multiplicative constant. The raw importance ratios serve as 
-weights on the corresponding random draws in the approximation of the quantity 
-of interest. The main problem with this approach is that
-the raw importance ratios tend to have large or infinite variance and
-results can be highly unstable. 
+some multiplicative constant. The raw importance ratios serve as weights on the
+corresponding random draws in the approximation of the quantity of interest.
 
-In order to stabilize those computations, one solution is to regularize the
-largest raw importance ratios using the corresponding quantiles of generalized
-Pareto distribution fitted to the largest raw importance ratios. This procedure
-is called Pareto smooth importance sampling [PSIS; @vehtari2017loo;
-@vehtari2017psis] and has been demonstrated to have a lower error and faster
-convergence rate than other commonly used regularization techniques
-[@vehtari2017psis]. In addition, PSIS comes with a useful diagnostic to evaluate
+The main problem with this approach is that the raw importance ratios tend to
+have large or infinite variance and results can be highly unstable. In order to
+stabilize the computations we can perform the additional step of regularizing
+the largest raw importance ratios using the corresponding quantiles of the
+generalized Pareto distribution fitted to the largest raw importance ratios.
+This procedure is called Pareto smooth importance sampling 
+[PSIS; @vehtari2017loo; @vehtari2017psis, @loo2019] and has been demonstrated to
+have a lower error and faster convergence rate than other commonly used
+regularization techniques [@vehtari2017psis].
+
+In addition, PSIS comes with a useful diagnostic to evaluate
 the quality of the importance sampling approximation. The shape parameter $k$
 of the generalized Pareto distribution fit to the largest importance ratios provides
-information about the number of existing moments of the weight distribution and
-the actual importance sampling estimate. When $k<0.5$, the weight distribution
-has finite variance, and as a result of the central limit theorem, the convergence of
-the importance sampling estimate with increasing number of draws will be fast. 
-This implies that approximate LOO-CV via PSIS is highly accurate for $k<0.5$ 
-[@vehtari2017psis]. For $0.5 \leq k < 1$, a generalized central limit
-theorem holds, but the convergence rate drops quickly as $k$ increases
-[@vehtari2017psis].  In practice, PSIS has been shown to be relatively robust
-for $k < 0.7$ [@vehtari2017loo; @vehtari2017psis]. As such, the default 
-threshold is set to $0.7$ when performing PSIS LOO-CV [@vehtari2017loo;@loo2018].
+information about the number of existing moments of the distribution of the
+weights (smoothed ratios) and the actual importance sampling estimate. 
+When $k<0.5$, the weight distribution has finite variance and the central limit
+theorem ensures fast convergence of the importance sampling estimate with
+increasing number of draws. This implies that approximate LOO-CV via PSIS is
+highly accurate for $k<0.5$ [@vehtari2017psis]. For $0.5 \leq k < 1$, a
+generalized central limit theorem holds, but the convergence rate drops quickly
+as $k$ increases [@vehtari2017psis].  In practice, PSIS has been shown to be
+relatively robust for $k < 0.7$ [@vehtari2017loo; @vehtari2017psis]. As such,
+the default threshold is set to $0.7$ when performing 
+PSIS LOO-CV [@vehtari2017loo;@loo2019].
 
 
 ### PSIS applied to $M$-step-ahead predictions
 
 We now turn back to our task of performing $M$-step-ahead predictions for
 time-series models. First, we refit the model using the first $L$ observations
-of the time-series, and then perform an exact $M$-step-ahead prediction step for $p(y_{L+1:M} \,|\, y_{1:L})$. 
+of the time-series and then perform a single exact $M$-step-ahead prediction 
+step for $p(y_{L+1:M} \,|\, y_{1:L})$. 
 Recall that $L$ is the minimum number of observations we have deemed
 acceptable for making predictions (setting $L=0$ means the first data point will
 be predicted only based on the prior). Next, starting with $i = L + 1$, we
@@ -358,30 +360,40 @@ above. The index set $J_i$ contains the indices of all observations which are
 part of the data for the model whose predictive performance we are trying to
 approximate but not for the actually fitted model. Until a refit becomes
 necessary (see below), we will have $J_i = \{L + 1, \ldots, i\}$.
-That is, for the starting value $i = L + 1$, we simply have 
-$J_i = \{i\}$.
+For the starting value $i = L + 1$ $J_i$ is just $\{i\}$.
 
-Continuing with the next observation, we gradually increase $i$ by $1$ (i.e., we move
-forward in time) and repeat the process. At some observation $i$, the
-variability of the importance ratios $r_i^{(s)}$ will become too large and
-importance sampling fails. We will refer to this particular value of $i$ as
+Continuing with the next observation, we gradually increase $i$ by $1$ 
+(i.e., we move forward in time) and repeat the process. At some observation $i$, 
+the variability of the importance ratios $r_i^{(s)}$ will become too large and
+importance sampling will fail. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
 distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
-then do we refit the model using only observations up to $i^\star_1$ and then
-restart the process. Until the next refit, we thus have 
-$J_i = \{i^\star_1+1, \ldots, i \}$ for $i^\star_1 < i$, as the 
-refitted model only contains the observations up to index $i^\star_1$. An
-illustration of this procedure is shown in Figure \@ref(fig:vis-msap).
+then do we refit the model using the observations up to $i^\star_1$ and 
+restart the process from there. Until the next refit we have 
+$J_i = \{i^\star_1+1, \ldots, i \}$ for $i^\star_1 < i$, 
+as the refitted model only contains the observations up to and including index
+$i^\star_1$. An illustration of this procedure is shown in Figure
+\@ref(fig:vis-msap). 
+
+This bears some resemblance to Sequential Monte Carlo (SMC), also known as
+partical or Monte Carlo filtering [e.g., @gordon1993; @kitagawa1996;
+@doucet2000; @andrieu2010], in that applying SMC to state space models also
+entails moving forward in time and using importance sampling to approximate the
+next state from the information in the previous states [@kitagawa1996;
+@andrieu2010]. However, in our case we are assuming we can sample from the
+posterior distribution and instead concerned with estimating the model's
+predictive performace. Unlike SMC, PSIS-LFO-CV also entails a full recomputation
+of the model via Markov chain Monte Carlo (MCMC) once importance sampling fails.
 
 In some cases we may only need to refit once and in other cases we will find a
 value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
-requires a third refitting, and so on. We repeat the refitting as many times as
-is required (only if $k > \tau$) until we arrive at $i = N - M$. 
-A detailed description of the algorithm in the form of
-pseudo code is provided in Appendix A. If the data contains multiple independent
-time-series, the algorithm should be applied to each of the time-series
-separately, and the resulting ELPD values can be summed up afterwards.
+requires a third refitting, and so on. We refit as many times as is required
+(only when $k > \tau$) until we arrive at observation $i = N - M$. A detailed
+description of the algorithm in the form of pseudo code is provided in Appendix
+A. If the data contains multiple independent time-series, the algorithm should
+be applied to each of the time-series separately, and the resulting ELPD values
+can be summed up afterwards.
 
 ```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
 status_levels <- c("included", "included (PSIS)", "left out")
@@ -416,68 +428,58 @@ ggplot(df, aes(obs, i, fill = Status)) +
   NULL
 ```
 
-The threshold $\tau$ is crucial to the accuracy and speed of the algorithm. If
-$\tau$ is too large then we need fewer refits and thus achieve higher speed, but
-accuracy is likely to suffer. If $\tau$ is too small, the accuray will be high
-but many refits will be required and overall speed will drop noticeably. When
-performing exact cross-validation of Bayesian models, almost all of the
-computational time is spent fitting models, while the time needed to compute
-predictions is negligible in comparison. That is, a reduction in the number of
-refits essentially implies a proportional reduction in the overall time required
-for cross-validation of Bayesian models. 
+Instead of moving forward in time, it is also possible to do 
+PSIS-LFO-CV moving backwards in time. However, in that case the target posterior
+is approximated by a distribution based on more observations and, as such, 
+the proposal distribution is narrower than the target. This can result in 
+highly influential importance weights more often than when 
+the proposal is wider than the target, which is the case
+for the forward PSIS-LFO-CV described above. In Appendix B we show 
+that moving backwards indeed requires more refits than moving forward, and 
+without any increase in accuracy. When we refer to the PSIS-LFO-CV algorithm 
+in the main text we are referring to the forward version.
 
-For the PSIS-LFO-CV algorithm introduced in this paper, we can expect an
-appropriate threshold to be somewhere between $0.5 \leq \tau \leq 0.7$. It is
-unlikely to be as high as the $\tau = 0.7$ default used for PSIS-LOO-CV because
-there will be more dependence in the errors when doing PSIS-LFO-CV. If there is
-a large error when leaving out the $i$th observation, then there is likely to
-also be a large error when leaving out observations $i, i+1, i+2, \ldots$ until
-a refit is performed. That is, highly influential observations corresponding to
-a large $k$ estimate are likely to have stronger effects on the total estimate
-for LFO-CV than for LOO-CV. We will come back to the issue of setting
-appropriate thresholds in Section \@ref(simulations).
+The threshold $\tau$ is crucial to the accuracy and speed of the PSIS-LFO-CV
+algorithm. $\tau$ is too large then we need fewer refits but accuracy will
+suffer. If $\tau$ is too small then accuracy will be higher but many refits will
+be required and the computation time may be impractical. Limiting the number of
+refits without sacrificing too much accuracy is essential since almost all of
+the computation time for exact cross-validation of Bayesian models is spent
+fitting the models (not calculating the predictions). Therefore, any reduction
+we can achieve in the number of refits essentially implies a proportional
+reduction in the overall time required for cross-validation of Bayesian models.
 
-The above described algorithm has some similarities with sequential Monte Carlo
-(SMC), also known as partical or Monte Carlo filtering [e.g., @gordon1993;
-@kitagawa1996; @doucet2000; @andrieu2010]. When applying SMC to state space models, we move
-forward in time and use importance sampling to approximate the current state
-using the information in the preciding states [@kitagawa1996; @andrieu2010]. The
-focus of SMC in such a context is the estimation of a model's posterior
-distribution (or certain parts of it), whereas, in our approach, we focus on the
-its predictive performance. Further, we apply a full recomputation of the model
-via Markov chain Monte Carlo (MCMC) once Pareto-smoothed importance sampling
-fails.
+We can expect an appropriate threshold for PSIS-LFO-CV to be somewhere between
+$0.5 \leq \tau \leq 0.7$. It is unlikely to be as high as the $\tau = 0.7$
+default used for PSIS-LOO-CV because there will be more dependence in the errors
+in the case of PSIS-LFO-CV. If there is a large error when leaving out the $i$th
+observation, then there is likely to also be a large error when leaving out
+observations $i, i+1, i+2, \ldots$ until a refit is performed. This means that
+highly influential observations (ones with a large $k$ estimate) are likely to
+have stronger effects on the total estimate for LFO-CV than for LOO-CV. We will
+come back to the issue of setting appropriate thresholds in Section
+\@ref(simulations).
 
-Our algorithm makes to important assumptions. First, it assumes that we can fit
-the time-series model with the full data or subsets of the data (until a given
-point in time) using generic probabilistic programming frameworks, such as Stan
-[@carpenter2017], JAGS [@jags], PyMC3 [@pymc3] or Pyro [@pyro]. These frameworks
-have become very popular in recent years also for the analysis of time-series
-models, despite the availability of sequential estimation procedures [e.g.,
-@doucet2000; @andrieu2010]. Therefore, providing efficient cross-validation
-methods for time-series models estimated via generic frameworks is of great
-practical relevance. It is likely that PSIS-LFO-CV can be implemented for
-sequential frameworks as well, or may even be computable as a by-product of their
-estimation procedure, but this is outside the scope of the present paper.
-Second, the efficiency of our algorithm as compared to exact LFO-CV relies on
-the ability to compute samples from the posterior predictive density (required
-for importance sampling) much more quickly than the time it takes to fully refit
-the model. This assumption is most likely justified when estimating a model
-using full Bayesian inference via MCMC or related methods as they are
-computationally very intensive. Importantely, we do not make any assumptions of
+Our proposed algorithm relies on two important assumptions. First, it assumes
+that we can fit the time-series model using generic probabilistic programming
+frameworks, such as Stan [@carpenter2017], JAGS [@jags], PyMC3 [@pymc3] or Pyro
+[@pyro]. These frameworks have become very popular in recent years for the
+analysis of time-series models. Efficient cross-validation methods for
+time-series models estimated via these generic Bayesian frameworks is therefore
+of great practical relevance. Sequential estimation procedures 
+[e.g., @doucet2000; @andrieu2010] are also available and it is likely that
+PSIS-LFO-CV can be implemented for these as well (it may even be computable as a
+by-product of their estimation procedure), but that is outside the scope of this
+paper.
+
+Second, the efficiency of PSIS-LFO-CV compared to exact LFO-CV relies on the
+ability to compute samples from the posterior predictive distribution (required
+for the importance sampling) in much less time than it takes to fully refit the
+model. This assumption is most likely justified when estimating a model using
+full Bayesian inference via MCMC or related methods as they are very
+computationally intensive. Importantly, we do not make any assumptions about
 *how* samples from the posterior or the posterior predictive density at a given
 point in time have been obtained.
-
-Instead of moving forward in time, it is also possible to move backwards. When
-performing this backward PSIS-LFO-CV, we approximate the target posterior
-by means of a posterior based on more observations and, as such, use a proposal
-distribution which is narrower than the target distribution. This may lead to
-highly influential importance weights more often than when using a proposal
-which is wider than the target distribution as is the case in the forward
-PSIS-LFO-CV described above. As detailed in Appendix B, moving backwards indeed
-requires more refits than moving forward without a compensating increase in
-accuracy. For this reason, we favor the forward over the backward procedure 
-and only describe the latter in Appendix B.
 
 # Simulations {#simulations}
 
@@ -563,8 +565,8 @@ methods better suited for the task.
 
 All simulations were done in R [@R2018] using the brms package [@brms1;
 @brms2] together with the probabilistic programming language Stan
-[@carpenter2017] for the modeling fitting, the loo package [@loo2018] for
-the PSIS computation, and several tidyverse packages [@tidyverse] for data
+[@carpenter2017] for the model fitting, the loo R package [@loo2019] for
+the PSIS computations, and several tidyverse R packages [@tidyverse] for data
 processing. The full code and all results are available on Github (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ## Results {#sim_results}
