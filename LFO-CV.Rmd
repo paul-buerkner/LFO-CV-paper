@@ -324,7 +324,7 @@ the default threshold is set to $0.7$ when performing
 PSIS LOO-CV [@vehtari2017loo;@loo2019].
 
 
-### PSIS applied to $M$-step-ahead predictions
+### PSIS applied to $M$-step-ahead predictions {#psis-MSAP}
 
 We now turn back to our task of performing $M$-step-ahead predictions for
 time-series models. First, we refit the model using the first $L$ observations
@@ -484,7 +484,7 @@ point in time have been obtained.
 # Simulations {#simulations}
 
 To evaluate the quality of the PSIS-LFO-CV approximation, we performed a
-simulation study. The following conditions were systematically varied: 
+simulation study in which the following conditions were systematically varied: 
 
 * The number $M$ of future observations to be predicted took on values of $M =
 1$ and $M = 4$.
@@ -549,9 +549,9 @@ are the autoregressive parameters and $\varepsilon_i$ are pairwise independent
 errors, which are usually assumed to be normally distributed with equal variance
 $\sigma^2$. The model implies a recursive formula that allows for computing the
 right-hand side of the equation for observation $i$ based on the values of the
-equations computed for previous observations. Thus, by definition, responses of
-AR-models are not conditionally independent. However, they are still
-factorizable because we can write down a separate likelihood contribution per
+equations computed for previous observations. Observations from an AR process are 
+therefore not conditionally independent by definition, but the likelihood is
+still factorizable because we can write down a separate contribution for each
 observation [see @buerkner:non-factorizable for more discussion on
 factorizability of statistical models].
 
@@ -559,9 +559,9 @@ In addition to exact and approximate LFO-CV, we also compute approximate LOO-CV
 for comparison. This is not because we think LOO-CV is a generally appropriate
 approach for time-series models, but because, in the absence of any approximate
 LFO-CV method, researchers may have used approximate LOO-CV for time-series
-models in the past simply because it was available. As such, demonstrating that
-LOO-CV is a biased estimate of LFO-CV underlines the importance of developing
-methods better suited for the task.
+models in the past simply because it was the only available option. 
+Demonstrating that LOO-CV is a biased estimate of LFO-CV underscores 
+the importance of developing methods better suited for the task.
 
 All simulations were done in R [@R2018] using the brms package [@brms1;
 @brms2] together with the probabilistic programming language Stan
@@ -624,15 +624,17 @@ lfo_sims <- read_rds("results/lfo_sims.rds") %>%
 
 Results of the 1-SAP simulations are visualized in Figure \@ref(fig:1sap).
 Comparing the columns of Figure \@ref(fig:1sap), it is clearly visible that the
-accuracy of the PSIS approximation is very high independent of the threshold
-$\tau$. The proportion of observations at which refitting the model was required
-did not exceed $3\%$ under all conditions and only increased minimally when
+the accuracy of the PSIS approximation is independent of the threshold
+$\tau$ when $\tau$ is within the interval $[0.5,0.7]$ motivated in \@ref(psis-MSAP)
+(this would not be the case if $\tau$ were allowed to be larger). 
+The proportion of observations at which refitting the model was required
+did not exceed $3\%$ under any of the conditions and only increased minimally when
 decreasing $\tau$ (see Table \@ref(tab:refits)). At least for the models
 investigated in our simulations, using $\tau = 0.7$ seems to be sufficient for
 achieving high accuracy and as such there is no need to lower the threshold below
-that value. As expected, LOO-CV is a biased estimate of the 1-SAP performance
-for all non-constant models in particular those with a trend in the time-series
-(see the lighter histograms in Figure \@ref(fig:1sap)).
+that value. As expected, LOO-CV (the lighter histograms in Figure
+\@ref(fig:1sap)) is a biased estimate of the 1-SAP performance for all
+non-constant models, in particular for models with a trend in the time-series.
 
 ```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
 lfo_sims %>% 
@@ -687,22 +689,23 @@ Results of the 4-SAP simulations are visualized in Figure \@ref(fig:4sap).
 Comparing the columns of Figure \@ref(fig:1sap), it is again clearly visible
 that the accuracy of the PSIS approximation is independent of the threshold
 $\tau$. The proportion of observations at which refitting the model was required
-did not exceed $3\%$ under all conditions and only increased minimally when
+did not exceed $3\%$ under any condition and only increased minimally when
 decreasing $\tau$ (see Table \@ref(tab:refits)). In light of the corresponding
-1-SAP results presented above, this is not surprising as the procedure for
+1-SAP results presented above, this is not surprising because the procedure for
 determining the necessity of a refit is independent of $M$ (see Section
-\@ref(approximate-MSAP)). When looking at the last three rows of Figure
-\@ref(fig:4sap), we see that there is a lot of variation around the true 4-SAP
-ELPD value across simulation trials, although in expectation PSIS-LFO-CV is
-still unbiased. This variation is caused by the fact we predict four
-observations into the future using models which only have an AR(2) component.
-Thus, predictions of the 3rd and 4th future observations become much more
-uncertain and, as a result, the PSIS-LFO-CV approximation becomes much more
-uncertain as well. This should not be seen as a limitation of our proposed
-approximation method but rather a limitation in the prediction capabilities of
-the applied models. PSIS-LOO-CV is not displayed in Figure \@ref(fig:4sap) as
-the number of observations predicted as each step (4 vs. 1) renders 4-SAP LFO-CV
+\@ref(approximate-MSAP)). PSIS-LOO-CV is not displayed in Figure \@ref(fig:4sap) as
+the number of observations predicted at each step (4 vs. 1) makes 4-SAP LFO-CV
 and LOO-CV incomparable.
+
+When looking at the bottom three rows of Figure \@ref(fig:4sap), we see that
+there is a lot of variation around the true 4-SAP ELPD value across simulation
+trials, although in expectation PSIS-LFO-CV is still unbiased. This variation is
+caused by the fact that we predict _four_ observations into the future using AR
+models of at most order _two_. Predictions for the 3rd and 4th observations into
+the future will therefore be have much greater uncertainty and, as a result, the
+PSIS-LFO-CV approximation becomes more uncertain as well. This is not a
+limitation of the method, but rather an artifact of the limited predictive
+capabilities of these particular models.
 
 ```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
 lfo_sims %>% 
