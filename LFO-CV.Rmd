@@ -565,9 +565,10 @@ the importance of developing methods better suited for the task.
 
 All simulations were done in R [@R2018] using the brms package [@brms1;
 @brms2] together with the probabilistic programming language Stan
-[@carpenter2017] for the model fitting, the loo R package [@loo2019] for
-the PSIS computations, and several tidyverse R packages [@tidyverse] for data
-processing. The full code and all results are available on Github (https://github.com/paul-buerkner/LFO-CV-paper).
+[@carpenter2017; @rstan2019] and for the model fitting, the loo R package
+[@loo2019] for the PSIS computations, and several tidyverse R packages
+[@tidyverse] for data processing. The full code and all results are available on
+Github (https://github.com/paul-buerkner/LFO-CV-paper).
 
 ## Results {#sim_results}
 
