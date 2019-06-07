@@ -842,14 +842,14 @@ observation will be based on more and more observations (see also Section
 \@ref(simulations)). For this example, we see some considerable differences in
 the pointwise ELPD contributions of specific observations which were hard to
 predict accurately by the model (see the right panel of Figure
-\@ref(fig:lh-pw-elpd)). This is to be expected as predicting $M$ steps ahead
+\@ref(fig:lh-pw-elpd)). This is to be expected because predicting $M$ steps ahead
 using an AR model will yield highly uncertain predictions if most of the
 autocorrelation happens at lags smaller than $M$ (see also the bottom rows in
-Figure \ref{fig:4sap}). For such a model, it may thus be ill adviced to evaluate
+Figure \ref{fig:4sap}). For such a model, it may be ill-advised to evaluate
 predictions too far into the future, at least when using the approximate methods
-presented in this paper. Since, for constant threshold $\tau$, the importance
-weights are the same independent of $M$, the Pareto $k$ estimates are also the
-same in $4$-SAP as in $1$-SAP.
+presented in this paper. Since, for a constant threshold $\tau$, the importance
+weights are the same independent of $M$, the Pareto $k$ estimates are the same
+for $4$-SAP and $1$-SAP.
 
 ```{r lh-pw-elpd, warning=FALSE, fig.height=3, fig.cap="Pointwise exact vs. PSIS-approximated ELPD contributions for 1-SAP (left) and 4-SAP (right) for the Lake Huron model. A threshold of $\\tau = 0.7$ was used for the Pareto $k$ estimates. $M$ is the number of predicted future observations."}
 lh_pw_elpd <- tibble(
@@ -895,7 +895,7 @@ date contains data between `r min(cherry$year)` AD and `r max(cherry$year)` AD
 [@aono2008; @aono2010]. The data is freely available online
 (http://atmenv.envi.osakafu-u.ac.jp/aono/kyophenotemp4/).
 
-In this case study, we are going to predict the annual date of the cherry
+In this case study, we will predict the annual date of the cherry
 blossom using an approximate Gaussian process model [@solin2014, @RiutortMayol2019] to
 provide flexible non-linear smoothing of the time-series. A visualisation of
 both the data and the fitted model in provided in Figure
@@ -967,8 +967,8 @@ ${\rm ELPD}_{\rm exact} =$ `r fmt(get_elpd(cb_elpd_1sap_exact), 1)` and
 ${\rm ELPD}_{\rm approx} =$ `r fmt(get_elpd(cb_elpd_1sap_approx), 1)`, 
 which are highly similar. As shown in the left panel of Figure
 \@ref(fig:cb-pw-elpd), the pointwise ELPD contributions are highly accurate,
-with no outliers, indicating the our approximation has worked well consistently
-across observations. PSIS-LFO-CV performs much better than PSIS-LOO-CV
+with no outliers. The approximation has worked well for all observations. 
+PSIS-LFO-CV performs much better than PSIS-LOO-CV
 (${\rm ELPD}_{\rm approx} =$  `r fmt(loo_cb$estimates[1, 1], 1)`), which
 overestimates the predictive performance. Plotting the Pareto $k$ estimates
 reveals that the model had to be refit `r cb_nrefits` times, out of a total of $N -
@@ -1018,24 +1018,22 @@ plot_ks(ks, ids, k_thres = k_thres)
 
 # Conclusion {#discussion}
 
-We proposed, evaluated, and demonstrated PSIS-LFO-CV, a new method for
-approximating cross-validation methods for time-series models. PSIS-LFO-CV is
-intended to be used when the prediction task is predicting future values based
-solely on past values and thus leave-one-out cross-validation is inappropriate.
+We proposed, evaluated, and demonstrated PSIS-LFO-CV, a method for approximating
+cross-validation of Bayesian time-series models. PSIS-LFO-CV is intended to be
+used when the prediction task is predicting future values based solely on past
+values, in which case leave-one-out cross-validation is inappropriate.
 Within the set of such prediction tasks, we can choose the number $M$ of future
-values to be predicted at a time. For a set of common time-series models, we
+observations to be predicted. For a set of common time-series models, we
 established via simulations that PSIS-LFO-CV is an unbiased approximation
 of exact LFO-CV if we choose the threshold $\tau$ of the Pareto $k$ estimates to
-be not larger than $\tau = 0.7$. That is, PSIS-LFO-CV does not require a smaller
-(i.e., stricter threshold) than PSIS-LOO-CV to achieve satistfactory accuracy.
+not be larger than $\tau = 0.7$. That is, PSIS-LFO-CV does not require a smaller
+(stricter) threshold than PSIS-LOO-CV to achieve satistfactory accuracy.
 
 By nature of the approximated $M$-step-ahead predictions, the comptutation time
-of PSIS-LFO-CV still increases linearily with increasing number of observations
-$N$. However, in our numerical experiments, we were
-able to reduce to computation time by a factor of roughly 25 to 100 as compared
-to exact LFO-CV. As a result, by means of our proposed method, LFO-CV becomes
-feasible for a lot of time-series data sets and corresponding models on which it
-was previously infeasible.
+of PSIS-LFO-CV still increases linearily with the number of observations $N$.
+However, in our numerical experiments, we were able to reduce to computation
+time by a factor of roughly 25 to 100 compared to exact LFO-CV, which is
+enough to make LFO-CV realistic for many applications.
 
 Lastly, we want to briefly note that LFO-CV can also be used to compute marginal
 likelihoods. Using basic rules of conditional probability, we can factor the
@@ -1049,8 +1047,8 @@ This is exactly the ELPD of 1-SAP if we set $L = 0$, that is if we
 choose to predict *all* observations using their respective past (the very
 first observation is only predicted from the prior). As such, marginal
 likelihoods may be approximated using PSIS-LFO-CV. Although this approach is
-unlikely to be more efficient than methods specialized to compute marginal
-likelihoods, such as bridge sampling [@meng1996; @meng2002; @gronau2017], it may
+unlikely to be more efficient than methods specialized for computing marginal
+likelihoods (e.g., bridge sampling [@meng1996; @meng2002; @gronau2017]), it may
 be a noteworthy option if for some reason other methods fail.
 
 # Acknowledgments
