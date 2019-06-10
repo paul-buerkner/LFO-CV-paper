@@ -96,6 +96,8 @@ far into the future as we want. When working in discrete time we will refer to
 the task of predicting a sequence of $M$ future observations as $M$-step-ahead
 prediction ($M$-SAP).
 
+
+
 It is easy to evaluate the $M$-SAP performance of a time series
 model by comparing the predictions to the observed sequence of $M$ future data
 points once they become available. However, we would often like to estimate 
@@ -142,6 +144,32 @@ and present PSIS-LFO-CV, an algorithm that typically only requires refitting a
 time-series model a small number times. This will make LFO-CV tractable for many
 more realistic applications than previously possible, including time series
 model averaging using stacking of predictive distributions [@yao2018].
+
+Our proposed algorithm relies on two important assumptions. First, it assumes
+that we fit the time-series model using generic probabilistic programming
+frameworks, such as Stan [@carpenter2017], JAGS [@jags], PyMC3 [@pymc3] or Pyro
+[@pyro]. These frameworks have become very popular in recent years also for 
+analysis of time-series models. Efficient cross-validation methods for
+time-series models estimated via these generic Bayesian frameworks is therefore
+of great practical relevance. For many time series models the inference could me made
+using sequential Monte Carlo (SMC) [e.g., @doucet2000; @andrieu2010]
+implemented e.g. in SMC specific probabilistic programming framework
+Birch (add citation from https://birch-lang.org/). Most SMC algorithms
+are using importance sampling, and thus LFO-CV could be obtained as
+by-product of running SMC and computation would resemble the approach
+presented here. The proposal distribution at each step and "refit"
+approach when the importance sampling weights degenerate are specific
+in each SMC algorithm and implementation details of LFO-CV for SMC
+algorithms is outside the scope of this paper.
+
+Second, the efficiency of PSIS-LFO-CV compared to exact LFO-CV relies on the
+ability to compute samples from the posterior predictive distribution (required
+for the importance sampling) in much less time than it takes to fully refit the
+model. This assumption is most likely justified when estimating a model using
+full Bayesian inference via MCMC, variational inference or related methods as they are very
+computationally intensive. Importantly, we do not make any assumptions about
+*how* samples from the posterior or the posterior predictive density at a given
+point in time have been obtained.
 
 The structure of the paper is as follows. In Section \@ref(m-sap), we introduce
 the idea and various forms of $M$-step-ahead prediction and how to approximate
@@ -376,8 +404,8 @@ as the refitted model only contains the observations up to and including index
 $i^\star_1$. An illustration of this procedure is shown in Figure
 \@ref(fig:vis-msap). 
 
-This bears some resemblance to Sequential Monte Carlo (SMC), also known as
-partical or Monte Carlo filtering [e.g., @gordon1993; @kitagawa1996;
+This bears some resemblance to Sequential Monte Carlo, also known as
+particle or Monte Carlo filtering [e.g., @gordon1993; @kitagawa1996;
 @doucet2000; @andrieu2010], in that applying SMC to state space models also
 entails moving forward in time and using importance sampling to approximate the
 next state from the information in the previous states [@kitagawa1996;
@@ -459,27 +487,6 @@ highly influential observations (ones with a large $k$ estimate) are likely to
 have stronger effects on the total estimate for LFO-CV than for LOO-CV. We will
 come back to the issue of setting appropriate thresholds in Section
 \@ref(simulations).
-
-Our proposed algorithm relies on two important assumptions. First, it assumes
-that we can fit the time-series model using generic probabilistic programming
-frameworks, such as Stan [@carpenter2017], JAGS [@jags], PyMC3 [@pymc3] or Pyro
-[@pyro]. These frameworks have become very popular in recent years for the
-analysis of time-series models. Efficient cross-validation methods for
-time-series models estimated via these generic Bayesian frameworks is therefore
-of great practical relevance. Sequential estimation procedures 
-[e.g., @doucet2000; @andrieu2010] are also available and it is likely that
-PSIS-LFO-CV can be implemented for these as well (it may even be computable as a
-by-product of their estimation procedure), but that is outside the scope of this
-paper.
-
-Second, the efficiency of PSIS-LFO-CV compared to exact LFO-CV relies on the
-ability to compute samples from the posterior predictive distribution (required
-for the importance sampling) in much less time than it takes to fully refit the
-model. This assumption is most likely justified when estimating a model using
-full Bayesian inference via MCMC or related methods as they are very
-computationally intensive. Importantly, we do not make any assumptions about
-*how* samples from the posterior or the posterior predictive density at a given
-point in time have been obtained.
 
 # Simulations {#simulations}
 
