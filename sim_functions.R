@@ -191,7 +191,7 @@ approx_lfo <- function(fit, M, L, k_thres = 0.7,
             data = data, M = M, psis = psis_j, k_thres = k_thres,
             criterion = criterion, factorize = factorize
           )
-          # TODO: use better criterion?
+          # TODO: use multiple proposal importance sampling
           out[j] <- (out[j] + tmp$crit) / 2 
         }
       }
