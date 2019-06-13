@@ -1,10 +1,9 @@
 ---
 title: "Approximate leave-future-out cross-validation for Bayesian time series models"
-author: "Paul-Christian Bürkner $^{1*}$, Jonah Gabry $^2$, & Aki Vehtari $^3$"
+author: "Paul-Christian Bürkner $^{1*}$, Jonah Gabry $^2$, & Aki Vehtari $^1$"
 date: |
-  $^1$ Department of Psychology, University of Münster, Germany \break
+  $^1$ Department of Computer Science, Aalto University, Finland\break
   $^2$ Applied Statistics Center and ISERP, Columbia University, USA \break
-  $^3$ Department of Computer Science, Aalto University, Finland\break
   $^*$ Corresponding author, Email: paul.buerkner@gmail.com
 abstract: |
   One of the common goals of time series analysis is to use the observed series
