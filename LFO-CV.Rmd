@@ -23,8 +23,7 @@ abstract: |
   approximating exact LFO-CV that drastically reduces the computational costs
   while also providing informative diagnostics about the quality of the
   approximation.\linebreak\linebreak 
-  Pareto Smoothed Importance Sampling
-  Keywords: Time Series Analysis, Cross-Validation, Bayesian Inference, 
+  Keywords: Time Series Analysis, Cross-Validation, Bayesian Inference, Pareto Smoothed Importance Sampling
 lang: en-US
 class: man
 # figsintext: true
