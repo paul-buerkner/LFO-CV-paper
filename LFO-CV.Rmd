@@ -1027,7 +1027,7 @@ of exact LFO-CV if we choose the threshold $\tau$ of the Pareto $k$ estimates to
 not be larger than $\tau = 0.7$. That is, PSIS-LFO-CV does not require a smaller
 (stricter) threshold than PSIS-LOO-CV to achieve satistfactory accuracy.
 
-By nature of the approximated $M$-step-ahead predictions, the comptutation time
+By nature of the approximated $M$-step-ahead predictions, the computation time
 of PSIS-LFO-CV still increases linearily with the number of observations $N$.
 However, in our numerical experiments, we were able to reduce to computation
 time by a factor of roughly 25 to 100 compared to exact LFO-CV, which is
