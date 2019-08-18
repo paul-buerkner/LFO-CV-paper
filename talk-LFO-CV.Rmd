@@ -39,6 +39,11 @@ colors <- unname(unlist(bayesplot::color_scheme_get()[c(6, 2)]))
 source("sim_functions.R")
 ```
 
+## Overarching Goal
+
+\centering
+\Large Estimate out-of-sample predictive performance of Bayesian models with high efficiency
+
 ## Water Level of Lake Huron
 
 ```{r}
@@ -136,32 +141,32 @@ $$
 ## Approximate M-Step-Ahead Predictions
 
 \begin{center}
-We are moving \textbf{backwards} in time!
+We are moving \textbf{forward} in time!
 \end{center}
 
 ```{r vis-msap}
-status_levels <- c("included", "left out", "left out (PSIS)")
+status_levels <- c("included", "included (PSIS)", "left out")
 df <- data.frame(
   obs = rep(1:9, 3),
   i = factor(rep(3:5, each = 9)),
   Status = c(
-    rep("included", 2), rep("left out (PSIS)", 2), rep("left out", 5),
-    rep("included", 3), rep("left out (PSIS)", 1), rep("left out", 5),
-    rep("included", 4), rep("left out", 5)
+    rep("included", 4), rep("left out", 5),
+    rep("included", 4), rep("included (PSIS)", 1), rep("left out", 4),
+    rep("included", 4), rep("included (PSIS)", 2), rep("left out", 3)
   )
 ) %>%
   mutate(Status = factor(Status, levels = status_levels))
 
 msap_colors <- c(
   bayesplot::color_scheme_get("viridis")$light,
-  bayesplot::color_scheme_get("viridis")$dark,
-  bayesplot::color_scheme_get("viridis")$mid_highlight
+  bayesplot::color_scheme_get("viridis")$light_highlight,
+  bayesplot::color_scheme_get("viridis")$dark
 )
 
 ggplot(df, aes(obs, i, fill = Status)) +
   geom_tile(height = 0.9, width = 1, col = "black") +
   annotate(
-    'text', x = 3:5, y = c(1, 2, 3), 
+    'text', x = 5:7, y = c(1, 2, 3), 
     label = "X", parse = TRUE, 
     size = 10, color = "white"
   ) +
@@ -170,6 +175,7 @@ ggplot(df, aes(obs, i, fill = Status)) +
   scale_fill_manual(values = msap_colors) +
   bayesplot::theme_default() +
   guides(fill = FALSE)
+  NULL
 ```
 
 ## Pareto Smoothg Importance Sampling (PSIS) for LFO-CV
@@ -187,7 +193,7 @@ Let's call $J_i$ the index set of observations included in the approximating mod
 
 For observation $i$ and posterior sample $s$ we compute the importance ratio as
 $$
-r_i^{(s)} = \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})}
+r_i^{(s)} = \prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})
 $$
 
 Stabilize $r_i^{(s)}$ via Pareto smoothing to obtain weights $w_i^{(s)}$
@@ -259,6 +265,13 @@ ggplot(preds, aes(x = time, y = Estimate)) +
 ## Simulation Results: ELPD of 1-SAP
 
 ```{r}
+get_elpd <- function(x) {
+  summarize_elpds(x)[1]
+}
+get_refits <- function(x) {
+  sum(attr(x, "refits"), na.rm = TRUE)
+}
+
 mlevels <- c(
   "constant", "linear", "quadratic",
   "AR2-only", "AR2-linear", "AR2-quadratic"
@@ -270,13 +283,12 @@ lfo_sims <- read_rds("results/lfo_sims.rds") %>%
     model = factor(model, levels = mlevels),
     tau = factor(k_thres, labels = tau_levels),
     elpd_loo = map_dbl(res, ~ .$loo_cv$estimates["elpd_loo", 1]),
-    elpd_exact_lfo = map_dbl(res, ~ .$lfo_exact_elpd[1]),
-    elpd_approx_lfo = map_dbl(res, ~ .$lfo_approx_elpd[1]),
+    elpd_exact_lfo = map_dbl(res, ~ get_elpd(.$lfo_exact_elpds)),
+    elpd_approx_lfo = map_dbl(res, ~ get_elpd(.$lfo_approx_fw_elpds)),
     elpd_diff_lfo = elpd_approx_lfo - elpd_exact_lfo,
     elpd_diff_loo = elpd_loo - elpd_exact_lfo,
-    npreds = map_dbl(res, ~ sum(!is.na(.$lfo_approx_elpds))),
-    nrefits = lengths(map(res, ~ attr(.$lfo_approx_elpds, "refits"))),
-    rel_nrefits = nrefits / npreds
+    nrefits = map_dbl(res, ~ get_refits(.$lfo_approx_fw_elpds)),
+    rel_nrefits = nrefits / (N - L)
   ) %>%
   # only keep results of AR models
   filter(is.na(B), grepl("AR2", model)) %>% 
@@ -291,9 +303,9 @@ lfo_refits_1sap <- lfo_sims %>%
   summarise(rel_nrefits = round(mean(rel_nrefits), 2))
 ```
 
-```{r 1sap, message=FALSE, fig.height=3.5, fig.width=5}
+```{r 1sap, message=FALSE, warning=FALSE, fig.height=3.5, fig.width=5, cache=FALSE}
 lfo_sims %>% 
-  filter(M == 1) %>% 
+  filter(M == 1) %>%  
   ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
   facet_grid(
     model ~ tau, #scales = "free_y", 
@@ -303,9 +315,10 @@ lfo_sims %>%
   labs(x = 'ELPD difference to exact LFO-CV', y = "") +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_label(
-    aes(x = 5.2, y = 1.8, label = rel_nrefits), 
+    aes(x = 2.7, y = 2.3, label = rel_nrefits), 
     data = lfo_refits_1sap, inherit.aes = FALSE
   ) + 
+  xlim(c(-2, 4)) + 
   theme_bw() +
   theme(
     legend.position = "bottom",
@@ -325,7 +338,7 @@ lfo_refits_4sap <- lfo_sims %>%
   summarise(rel_nrefits = round(mean(rel_nrefits), 2))
 ```
 
-```{r 4sap, message=FALSE, warning=FALSE, fig.height=3.5, fig.width=5}
+```{r 4sap, message=FALSE, warning=FALSE, fig.height=3.5, fig.width=5, cache=FALSE}
 lfo_sims %>% 
   filter(M == 4) %>% 
   ggplot(aes(x = elpd_diff_lfo, y = ..density..)) +
@@ -337,7 +350,7 @@ lfo_sims %>%
   labs(x = 'ELPD difference to exact LFO-CV', y = "") +
   geom_vline(xintercept = 0, linetype = 2) +
   geom_label(
-    aes(x = 22, y = 0.25, label = rel_nrefits), 
+    aes(x = 20, y = 0.15, label = rel_nrefits), 
     data = lfo_refits_4sap, inherit.aes = FALSE
   ) + 
   xlim(c(-15, 30)) + 
@@ -361,7 +374,7 @@ lh_elpd_1sap_exact <- compute_lfo(
 )
 lh_elpd_1sap_approx <- compute_lfo(
   fit_lh, type = "approx", M = M, L = L, 
-  file = "results/lh_elpd_1sap_approx.rds"
+  file = "results/lh_elpd_1sap_approx_fw.rds"
 )
 refits <- attributes(lh_elpd_1sap_approx)$refits
 nrefits <- length(refits)
@@ -378,7 +391,7 @@ lh_elpd_4sap_exact <- compute_lfo(
 )
 lh_elpd_4sap_approx <- compute_lfo(
   fit_lh, type = "approx", M = M, L = L, 
-  file = "results/lh_elpd_4sap_approx.rds"
+  file = "results/lh_elpd_4sap_approx_fw.rds"
 )
 sum_lh_elpd_4sap_exact <- summarize_elpds(lh_elpd_4sap_exact)[1]
 sum_lh_elpd_4sap_approx <- summarize_elpds(lh_elpd_4sap_approx)[1]
@@ -471,46 +484,3 @@ Solution: Stabilize $r^{(s)}$ by applying Pareto Smoothing
 - PSIS weights $w^{(s)}$ that replace $r^{(s)}$
 - Diagnose accuracy via the Pareto shape parameter $k$
 
-
-## Approximate Block M-Step-Ahead Predictions
-
-```{r vis-block-msap, }
-status_levels <- c("included", "included (PSIS)", "left out", "left out (PSIS)")
-df <- data.frame(
-  obs = rep(1:9, 3),
-  i = factor(rep(3:5, each = 9)),
-  Status = c(
-    rep("included", 2), rep("left out (PSIS)", 2), rep("left out", 2), 
-    rep("included (PSIS)", 2), rep("included", 1),
-    rep("included", 3), rep("left out (PSIS)", 1), rep("left out", 3), 
-    rep("included (PSIS)", 1), rep("included", 1),
-    rep("included", 4), rep("left out", 4), rep("included", 1)
-  )
-) %>%
-  mutate(Status = factor(Status, levels = status_levels))
-
-block_msap_colors <- c(
-  bayesplot::color_scheme_get("viridis")$light,
-  bayesplot::color_scheme_get("viridis")$light_highlight,
-  bayesplot::color_scheme_get("viridis")$dark,
-  bayesplot::color_scheme_get("viridis")$mid_highlight
-)
-
-ggplot(df, aes(obs, i, fill = Status)) +
-  geom_tile(height = 0.9, width = 1, col = "black") +
-  annotate(
-    'text', x = 3:5, y = 1:3, 
-    label = "X", parse = TRUE, 
-    size = 10, color = "white"
-  ) +
-  annotate(
-    'text', x = c(4:6, 5:7, 6:8), y = rep(1:3, each = 3), 
-    label = "B", parse = TRUE, size = 10, color = "white"
-  ) +
-  labs(x = "Observation", y = "Predicted observation") +
-  scale_x_continuous(breaks = 1:9) +
-  scale_fill_manual(values = block_msap_colors) +
-  guides(fill = FALSE) +
-  bayesplot::theme_default() +
-  NULL
-```
