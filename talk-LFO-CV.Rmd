@@ -189,7 +189,8 @@ $$
 
 \bigskip
 
-Let's call $J_i$ the index set of observations included in the approximating model but **not** in the target model
+Let's call $J_i$ the index set of observations included 
+in the target model but **not** in the approximating model
 
 For observation $i$ and posterior sample $s$ we compute the importance ratio as
 $$
@@ -434,7 +435,7 @@ ggplot(lh_pw_elpd, aes(elpd_exact, elpd_approx)) +
 - LFO-CV seems reasonable for time series models
 - We can approximate LFO-CV via PSIS
 - PSIS-LFO-CV provides a close approximation to exact LFO-CV
-- PSIS-LFO-CV improves speed by an order of magnitude
+- PSIS-LFO-CV improves speed by up to two orders of magnitude
 
 \bigskip
 
