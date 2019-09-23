@@ -419,3 +419,27 @@ sim_fun <- function(j, conditions, ...) {
     lfo_approx_cb_elpds = lfo_approx_cb_elpds
   )
 }
+
+sim_fun_rmse <- function(j, conditions, ...) {
+  # simulate data and fit the corresponding model
+  message("Simulating LFO-CV for condition ", j)
+  N <- conditions$N[j]
+  M <- conditions$M[j]
+  L <- conditions$L[j]
+  k_thres <- conditions$k_thres[j]
+  model <- conditions$model[j]
+  fit <- fit_model(model = model, N = N, ...)
+  
+  lfo_exact_rmses <- exact_lfo(fit, M = M, L = L, criterion = "rmse")
+  lfo_approx_fw_rmses <- approx_lfo(
+    fit, M = M, L = L, k_thres = k_thres,
+    mode = "forward", criterion = "rmse"
+  )
+  
+  # return all relevant information
+  list(
+    # storing 'fit' requires too much space
+    lfo_exact_rmses = lfo_exact_rmses,
+    lfo_approx_fw_rmses = lfo_approx_fw_rmses
+  )
+}
