@@ -84,8 +84,9 @@ fmt <- function(x, digits = 1, ...) {
 # Introduction
 
 A wide range of statistical models for time series have been developed, finding
-applications in nearly all empirical sciences [e.g., see @brockwell2002;
-@hamilton1994]. One common goal of a time series analysis is to use the observed
+applications in industry and nearly all empirical sciences 
+[e.g., see @brockwell2002; @hamilton1994].
+One common goal of a time series analysis is to use the observed
 series to inform predictions for future time points. In this paper we will
 assume a Bayesian approach to time series modeling, in which case if it is
 possible to sample from the posterior _predictive_ distribution implied by a
@@ -103,12 +104,11 @@ first decide which model (or which combination of the models) to
 rely on for prediction [@geisser1979; @hoeting1999; @vehtari2002; @ando2010; 
 @vehtari2012]. 
 
-In the absence of new data with which to evaluate predictive performance, one
-general approach for evaluating a model's predictive accuracy is
-cross-validation. The data is first split into two subsets, then we fit the
-statistical model to the first subset and evaluate predictive performance with
-the second subset. We may do this once or many times, each time leaving out a
-different subset.
+In the absence of new data, one general approach for evaluating a model's
+predictive accuracy is cross-validation. The data is first split into two
+subsets, then we fit the statistical model to the first subset and evaluate
+predictive performance with the second subset. We may do this once or many
+times, each time leaving out a different subset.
 
 If the data points are not ordered in time, or if the goal is to assess the
 non-time-dependent part of the model, then we can use leave-one-out
@@ -126,7 +126,7 @@ diagnostics for assessing the validity of the approximation.
 However, using LOO-CV with times series models is problematic if the goal is to
 estimate the predictive performance for future time points. Leaving out only one
 observation at a time will allow information from the future to influence
-predictions of the past (i.e., data from times $t+1, t+2, \ldots$ would inform
+predictions of the past (i.e., data from times $t+1, t+2, \ldots,$ would inform
 predictions for time $t$). Instead, to apply the idea of cross-validation to the
 $M$-SAP case we can use what we will refer to as leave-*future*-out
 cross-validation (LFO-CV). LFO-CV does not refer to one particular prediction
@@ -137,35 +137,32 @@ Like exact LOO-CV, exact LFO-CV requires refitting the model many times to
 different subsets of the data, which is computationally expensive, in particular
 for full Bayesian inference. In this paper, we extend the ideas from PSIS-LOO-CV
 and present PSIS-LFO-CV, an algorithm that typically only requires refitting a
-time-series model a small number times. This will make LFO-CV tractable for many
+time series model a small number times. This will make LFO-CV tractable for many
 more realistic applications than previously possible, including time series
 model averaging using stacking of predictive distributions [@yao2018].
 
-Our proposed algorithm relies on two important assumptions. First, it assumes
-that we fit the time-series model using generic probabilistic programming
-frameworks, such as Stan [@carpenter2017], JAGS [@jags], PyMC3 [@pymc3] or Pyro
-[@pyro]. These frameworks have become very popular in recent years also for
-analysis of time-series models. Efficient cross-validation methods for
-time-series models estimated via these generic Bayesian frameworks is therefore
-of great practical relevance. For many time series models, inference could be
-performed using sequential Monte Carlo (SMC) [e.g., @doucet2000; @andrieu2010]
-implemented for example in the SMC specific probabilistic programming framework
-Birch [@birch]. Most SMC algorithms are using importance sampling, and thus
-LFO-CV could be obtained as by-product of running SMC and computation would
-resemble the approach presented here. The proposal distribution at each step and
-the applied "refit" approach, when the importance sampling weights degenerate,
-are specific to each SMC algorithm. As we focus on generic probabilistic
-programming frameworks, implementation details of LFO-CV for SMC algorithms are
-outside the scope of this paper.
-
-Second, the efficiency of PSIS-LFO-CV compared to exact LFO-CV relies on the
+The efficiency of PSIS-LFO-CV compared to exact LFO-CV relies on the
 ability to compute samples from the posterior predictive distribution (required
 for the importance sampling) in much less time than it takes to fully refit the
 model. This assumption is most likely justified when estimating a model using
 full Bayesian inference via MCMC, variational inference, or related methods as
-they are very computationally intensive. Importantly, we do not make any
+they are very computationally intensive. We do not make any
 assumptions about *how* samples from the posterior or the posterior predictive
 density at a given point in time have been obtained.
+
+Our proposed algorithm was motivated by the practical need for efficient
+cross-validation tools for Bayesian time series models fit using generic
+probabilistic programming frameworks, such as Stan [@carpenter2017], JAGS
+[@jags], PyMC3 [@pymc3] and Pyro [@pyro]. These frameworks have become very
+popular in recent years also for analysis of time series models. For many
+models, inference could also be performed using sequential Monte Carlo (SMC)
+[e.g.,@doucet2000; @andrieu2010] using, for example, the SMC-specific framework
+Birch [@birch]. The implementation details of LFO-CV for SMC algorithms are
+beyond the scope of this paper.\footnote{Most SMC algorithms use importance
+sampling and LFO-CV could be obtained as a by-product, with computation
+resembling the approach we present here. The proposal distribution at each step
+and the applied "refit" approach (when the importance sampling weights become
+degenerate) are specific to each SMC algorithm.}
 
 The structure of the paper is as follows. In Section \@ref(m-sap), we introduce
 the idea and various forms of $M$-step-ahead prediction and how to approximate
@@ -223,7 +220,7 @@ to [c.f., @bernardo1994; @vehtari2012]:
 
 The quantities $p(y_{i+1:M} \,|\, y_{1:i})$ can be computed with the help of the
 posterior distribution $p(\theta \,|\, y_{1:i})$ of the parameters $\theta$
-conditional on only the first $i-1$ observations of the time-series:
+conditional on only the first $i-1$ observations of the time series:
 
 \begin{equation}
 \label{Lpred}
@@ -232,32 +229,13 @@ p(y_{i+1:M} \,| \, y_{1:i}) =
     p(\theta\,|\,y_{1:i}) \, {\rm d} \theta. 
 \end{equation}
 
-Most time-series models have a non-factorizable likelihood, that is, $y_{i+1:M}$
+Most time series models have a non-factorizable likelihood, that is, $y_{i+1:M}$
 depends on $y_{1:i}$ even after conditioning on $\theta$. As such, we cannot
 simplify the integrand in (\ref{Lpred}) as would have been possible for
 factorizable likelihoods. Instead, we always need to take $y_{1:i}$ into account
 when computing the predictive density of $y_{i+1:M}$ (see
 @buerkner:non-factorizable for more discussion on computing predictive densities
 of non-factorizable models).
-
-<!--
-For factorizable models, the response values are conditionally
-independent given the parameters, and the likelihood can be written
-in the factorized form
-
-\begin{equation}
-p(y \,|\, \theta) = \prod_{n=1}^N p(y_n \,|\, \theta).
-\end{equation}
-
-In this case, $p(y_{i+1:M} \,|\, y_{1:i}, \theta)$ reduces to
-\begin{equation}
-p(y_{i+1:M} \,|\, y_{1:i}, \theta) =p(y_{i+1:M} \,|\, \theta) =
-\prod_{n = i+1}^{i + M} p(y_n \,|\, \theta),
-\end{equation}
-due to the assumption of conditional independence between $y_{i+1:M}$ and $y_{1:i}$
-given $\theta$. Cross-validation for non-factorizable models, which
-does not make this assumption, is discussed in @buerkner:non-factorizable.
--->
 
 In practice, we will not be able to directly solve the integral in 
 (\@ref(Lpred)), but instead have to use Monte-Carlo methods to approximate it.
@@ -270,18 +248,17 @@ p(y_{i+1:M} \,|\, y_{1:i}) \approx \frac{1}{S}
 \sum_{s=1}^S p(y_{i+1:M} \,|\, y_{1:i}, \theta_{1:i}^{(s)}).
 \end{equation}
 
-In this paper, we focus on the ELPD as a measure of predictive accuracy, but
-$M$-SAP (and the approximations we introduce below) may also be based on other
-global measures of accuracy such as the root mean squared error (RMSE) or the
-median absolute deviation (MAD). The reason for focussing on the ELPD is that,
-in contrast to RMSE and MAD, the ELPD evaluates the whole distribution rather
-than just point estimates to provide a measure of out-of-sample predictive
-performance, which we see as favorable from a fully Bayesian perspective 
-[@vehtari2012]. The code we provide on GitHub
+In this paper we use ELPD as a measure of predictive accuracy, but $M$-SAP (and
+the approximations we introduce below) may also be based on other global
+measures of accuracy such as the root mean squared error (RMSE) or the median
+absolute deviation (MAD). The reason for our focus on ELPD is that it evaluates
+a distribution rather than a point estimate (like the mean or median) to provide
+a measure of out-of-sample predictive performance, which we see as favorable
+from a Bayesian perspective [@vehtari2012]. The code we provide on GitHub
 (https://github.com/paul-buerkner/LFO-CV-paper) is modularized to support
 arbitrary measures of accuracy as long as they can be represented in a pointwise
-manner, that is, as increments per observation. In Appendix XXX, we
-provide additional simulation results for the RMSE.
+manner, that is, as increments per observation. In Appendix C we also provide
+additional simulation results using RMSE instead of ELPD.
 
 ## Approximate $M$-step-ahead predictions {#approximate-MSAP}
 
@@ -289,7 +266,7 @@ The equations above make use of posterior distributions from many
 different fits of the model to different subsets of the data. To obtain
 the predictive density $p(y_{i+1:M} \,|\, y_{1:i})$, a model is fit to
 only the first $i$ data points, and we need to do this for every value of
-$i$ under consideration (i.e., all $i \in \{L, \ldots, N - M\}$).
+$i$ under consideration (all $i \in \{L, \ldots, N - M\}$).
 Below, we present a new algorithm to reduce the number of models that need
 to be fit for the purpose of obtaining each of the densities 
 $p(y_{i+1:M} \,|\, y_{1:i})$. This algorithm relies in a central manner on
@@ -331,10 +308,10 @@ corresponding random draws in the approximation of the quantity of interest.
 
 The main problem with this approach is that the raw importance ratios tend to
 have large or infinite variance and results can be highly unstable. In order to
-stabilize the computations we can perform the additional step of regularizing
+stabilize the computations, we can perform the additional step of regularizing
 the largest raw importance ratios using the corresponding quantiles of the
 generalized Pareto distribution fitted to the largest raw importance ratios.
-This procedure is called Pareto smooth importance sampling 
+This procedure is called Pareto smoothed importance sampling 
 [PSIS; @vehtari2017loo; @vehtari2017psis, @loo2019] and has been demonstrated to
 have a lower error and faster convergence rate than other commonly used
 regularization techniques [@vehtari2017psis].
@@ -357,9 +334,9 @@ PSIS LOO-CV [@vehtari2017loo;@loo2019].
 
 ### PSIS applied to $M$-step-ahead predictions {#psis-MSAP}
 
-We now turn back to our task of performing $M$-step-ahead predictions for
-time-series models. First, we refit the model using the first $L$ observations
-of the time-series and then perform a single exact $M$-step-ahead prediction 
+We now turn back to the task of estimating $M$-step-ahead performance for
+time series models. First, we refit the model using the first $L$ observations
+of the time series and then perform a single exact $M$-step-ahead prediction 
 step for $p(y_{L+1:M} \,|\, y_{1:L})$. 
 Recall that $L$ is the minimum number of observations we have deemed
 acceptable for making predictions (setting $L=0$ means the first data point will
@@ -395,7 +372,7 @@ necessary (see below), we will have $J_i = \{L + 1, \ldots, i\}$.
 For the starting value $i = L + 1$, $J_i$ is just $\{i\}$.
 
 Continuing with the next observation, we gradually increase $i$ by $1$ 
-(i.e., we move forward in time) and repeat the process. At some observation $i$, 
+(we move forward in time) and repeat the process. At some observation $i$, 
 the variability of the importance ratios $r_i^{(s)}$ will become too large and
 importance sampling will fail. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
@@ -423,8 +400,8 @@ value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We refit as many times as is required
 (only when $k > \tau$) until we arrive at observation $i = N - M$. A detailed
 description of the algorithm in the form of pseudo code is provided in Appendix
-A. If the data contains multiple independent time-series, the algorithm should
-be applied to each of the time-series separately, and the resulting ELPD values
+A. If the data contains multiple independent time series, the algorithm should
+be applied to each of the time series separately, and the resulting ELPD values
 can be summed up afterwards.
 
 ```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
@@ -496,9 +473,9 @@ to $k = 0.7$ in steps of $0.1$.
 quadratic terms and/or autoregressive terms of order 2 (see Figure 
 \@ref(fig:simmodels) for an illustration).
 
-In all cases the time-series consisted of $N = 200$ observations and the minimal
+In all cases the time series consisted of $N = 200$ observations and the minimal
 number of observations required before make predictions was set to $L = 25$.
-We ran $T = 100$ simulation trials per condition.
+We ran $100$ simulation trials per condition.
 
 ```{r, include = FALSE}
 seed <- 1234
@@ -539,7 +516,7 @@ ggplot(preds, aes(x = time, y = Estimate)) +
   labs(y = "y")
 ```
 
-Autoregressive (AR) models are some of the most commonly used time-series models. 
+Autoregressive (AR) models are some of the most commonly used time series models. 
 An AR(p) model -- an autoregressive model of order $p$ -- can be defined as
 
 \begin{equation}
@@ -576,17 +553,17 @@ parameters were set to represent typical positively autocorrelated data.
 In the simulation conditions without linear and/or quadratic and/or 
 AR(2) terms, the corresponding true parameters were simply fixed to zero.
 
-In addition to exact and approximate LFO-CV, we also compute approximate LOO-CV
+In addition to exact and approximate LFO-CV, we also computed approximate LOO-CV
 for comparison. This is not because we think LOO-CV is a generally appropriate
-approach for time-series models, but because, in the absence of any approximate
-LFO-CV method, researchers may have used approximate LOO-CV for time-series
+approach for time series models, but because, in the absence of any approximate
+LFO-CV method, researchers may have used approximate LOO-CV for time series
 models in the past simply because it was the only available option. 
 Demonstrating that LOO-CV is a biased estimate of LFO-CV underscores 
 the importance of developing methods better suited for the task.
 
 All simulations were done in R [@R2018] using the brms package [@brms1;
 @brms2] together with the probabilistic programming language Stan
-[@carpenter2017; @rstan2019] and for the model fitting, the loo R package
+[@carpenter2017; @rstan2019] for model fitting, the loo R package
 [@loo2019] for the PSIS computations, and several tidyverse R packages
 [@tidyverse] for data processing. The full code and all results are available on
 Github (https://github.com/paul-buerkner/LFO-CV-paper).
@@ -645,8 +622,9 @@ lfo_sims <- read_rds("results/lfo_sims.rds") %>%
   select(-res)
 ```
 
-In this section, we focus on the ELPD as a measure out-of-sample predictive
-performance for reasons outlined in Section \ref{m-sap}. In Appendix XXX, we provide additional simulations for the RMSE. 
+In this section we focus on the ELPD as a measure out-of-sample predictive
+performance for reasons outlined in Section \ref{m-sap}. In Appendix C, 
+we provide additional simulation results for the RMSE. 
 
 Results of the 1-SAP simulations are visualized in Figure \@ref(fig:1sap).
 Comparing the columns of Figure \@ref(fig:1sap), it is clearly visible that the
@@ -663,11 +641,11 @@ simulations, using $\tau = 0.7$ seems to be sufficient for achieving high
 accuracy and as such there is no need to lower the threshold below that value.
 As expected, LOO-CV (the lighter histograms in Figure \@ref(fig:1sap)) is a
 biased estimate of the 1-SAP performance for all non-constant models, in
-particular for models with a trend in the time-series. More precisely, LOO-CV is
+particular for models with a trend in the time series. More precisely, LOO-CV is
 positively biased, which implies that it systematically overestimates $M$-SAP
-performance of time-series models.
+performance of time series models.
 
-```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
+```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 1) %>% 
   select(elpd_diff_fw_lfo, elpd_diff_loo, model, tau) %>%
@@ -709,7 +687,7 @@ lfo_sims %>%
     escape = FALSE
   ) %>%
   footnote(
-    general = "Note: Results are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. Abbreviations: $\\\\tau$ = threshold of the Pareto $k$ estimates; $M$ = number of predicted future observations.",
+    general = "Note: Results are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. Abbreviations: $\\\\tau$ = threshold of the Pareto $k$ estimates; $M$ = number of predicted future observations.",
     general_title = "",
     threeparttable = TRUE,
     escape = FALSE
@@ -733,12 +711,11 @@ there is a lot of variation around the true 4-SAP ELPD value across simulation
 trials, although in expectation PSIS-LFO-CV is still unbiased. This variation is
 caused by the fact that we predict _four_ observations into the future using AR
 models of at most order _two_. Predictions for the 3rd and 4th observations into
-the future will therefore be have much greater uncertainty and, as a result, the
-PSIS-LFO-CV approximation becomes more uncertain as well. This is not a
-limitation of the method, but rather an artifact of the limited predictive
-capabilities of these particular models.
+the future will therefore have much greater uncertainty and so will the
+PSIS-LFO-CV approximation. This is not a limitation of the method, but rather an
+artifact of the limited predictive capabilities of these particular models.
 
-```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
+```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 4) %>%
   select(elpd_diff_fw_lfo, model, tau) %>%
@@ -768,7 +745,7 @@ To illustrate the application of PSIS-LFO-CV for estimating expected $M$-SAP
 performance, we will fit a model for 98 annual measurements of the water level
 (in feet) of [Lake Huron](https://en.wikipedia.org/wiki/Lake_Huron) from the
 years 1875--1972. This data set is found in the *datasets* R package, which is
-installed automatically with R [@R2018]. The time-series shows rather strong
+installed automatically with R [@R2018]. The time series shows rather strong
 autocorrelation and some downward trend towards lower water levels for later points
 in time. Figure \@ref(fig:lake-huron) shows the observed time series of water 
 levels as well as predictions from a fitted AR(4) model.
@@ -920,17 +897,17 @@ cherry_doy <- cherry[!is.na(cherry$doy), ]
 ```
 
 The cherry blossom in Japan is a famous natural phenomenon occurring once every
-year during spring. As climate changes so does the annual date of the cherry
+year during spring. As the climate changes so does the annual date of the cherry
 blossom [@aono2008; @aono2010]. The most complete reconstruction available to
 date contains data between `r min(cherry$year)` AD and `r max(cherry$year)` AD
-[@aono2008; @aono2010]. The data is freely available online
+[@aono2008; @aono2010] and is available online
 (http://atmenv.envi.osakafu-u.ac.jp/aono/kyophenotemp4/).
 
 In this case study, we will predict the annual date of the cherry
 blossom using an approximate Gaussian process model [@solin2014; @RiutortMayol2019] to
-provide flexible non-linear smoothing of the time-series. A visualisation of
-both the data and the fitted model in provided in Figure
-\@ref(fig:cherry-blossom). While the time-series appears rather stable across
+provide flexible non-linear smoothing of the time series. A visualisation of
+both the data and the fitted model is provided in Figure
+\@ref(fig:cherry-blossom). While the time series appears rather stable across
 earlier centuries, with substantial variation across consecutive years, there
 are some clearly visible trends in the data. Particularly in more recent years,
 the cherry blossom has tended to happen much earlier than before, which may 
@@ -1050,11 +1027,11 @@ plot_ks(ks, ids, k_thres = k_thres)
 # Conclusion {#discussion}
 
 We proposed, evaluated, and demonstrated PSIS-LFO-CV, a method for approximating
-cross-validation of Bayesian time-series models. PSIS-LFO-CV is intended to be
+cross-validation of Bayesian time series models. PSIS-LFO-CV is intended to be
 used when the prediction task is predicting future values based solely on past
 values, in which case leave-one-out cross-validation is inappropriate.
 Within the set of such prediction tasks, we can choose the number $M$ of future
-observations to be predicted. For a set of common time-series models, we
+observations to be predicted. For a set of common time series models, we
 established via simulations that PSIS-LFO-CV is an unbiased approximation
 of exact LFO-CV if we choose the threshold $\tau$ of the Pareto $k$ estimates to
 not be larger than $\tau = 0.7$. That is, PSIS-LFO-CV does not require a smaller
@@ -1100,7 +1077,7 @@ PSIS-LFO-CV algorithm when leaving out all future values. See https://github.com
 ```{r, tidy=FALSE, eval=FALSE, echo = TRUE}
 # Approximate Leave-Future-Out Cross-Validation (LFO-CV)
 # Arguments:
-#   model: the fitted time-series model based on the complete data
+#   model: the fitted time series model based on the complete data
 #   data: the complete data set
 #   M: number of steps to be predicted into the future
 #   L: minimal number of observations necessary to make predictions
@@ -1244,7 +1221,7 @@ be seen in Table \ref{tab:refits-both}, backward PSIS-LFO-CV requires
 considerably more refits then forward PSIS-LFO-CV. Together, this indicates
 that, in expectation, backward PSIS-LFO-CV is inferior to forward PSIS-LFO-CV.
 
-```{r 1sap-both, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
+```{r 1sap-both, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 1) %>% 
   select(starts_with("elpd_diff"), model, tau) %>%
@@ -1274,7 +1251,7 @@ lfo_sims %>%
   NULL
 ```
 
-```{r 4sap-both, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
+```{r 4sap-both, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 4) %>%
   select(starts_with("elpd_diff"), model, tau, -elpd_diff_loo) %>%
@@ -1332,7 +1309,7 @@ lfo_sims %>%
     escape = FALSE
   ) %>%
   footnote(
-    general = "Note: Results are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. Abbreviations: $\\\\tau$ = threshold of the Pareto $k$ estimates; $M$ = number of predicted future observations.",
+    general = "Note: Results are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. Abbreviations: $\\\\tau$ = threshold of the Pareto $k$ estimates; $M$ = number of predicted future observations.",
     general_title = "",
     threeparttable = TRUE,
     escape = FALSE
