@@ -94,8 +94,6 @@ far into the future as we want. When working in discrete time we will refer to
 the task of predicting a sequence of $M$ future observations as $M$-step-ahead
 prediction ($M$-SAP).
 
-
-
 It is easy to evaluate the $M$-SAP performance of a time series
 model by comparing the predictions to the observed sequence of $M$ future data
 points once they become available. However, we would often like to estimate 
@@ -214,7 +212,10 @@ for M-SAP, can be defined as
 
 The distribution $p_t(\tilde{y}_{i+1:M})$ describes the true data generating
 process for new data $\tilde{y}_{i+1:M}$. As these true data generating processes
-are unknown, we approximate the ELPD using LFO-CV, which leads to
+are unknown, we approximate the ELPD using LFO-CV of the observed responses 
+$y_{i+1:M}$, which constitute a particular realization of $\tilde{y}_{i+1:M}$.
+Plugging in the realization $y_{i+1:M}$ for $\tilde{y}_{i+1:M}$ leads
+to [c.f., @bernardo1994; @vehtari2012]:
  
 \begin{equation}
 {\rm ELPD}_{\rm LFO} = \sum_{i=L}^{N - M} \log p(y_{i+1:M} \,|\, y_{1:i}).
@@ -269,14 +270,18 @@ p(y_{i+1:M} \,|\, y_{1:i}) \approx \frac{1}{S}
 \sum_{s=1}^S p(y_{i+1:M} \,|\, y_{1:i}, \theta_{1:i}^{(s)}).
 \end{equation}
 
-In this paper we focus on the ELPD as a measure of predictive accuracy, but
+In this paper, we focus on the ELPD as a measure of predictive accuracy, but
 $M$-SAP (and the approximations we introduce below) may also be based on other
 global measures of accuracy such as the root mean squared error (RMSE) or the
-median absolute deviation (MAD). The code we provide on GitHub
+median absolute deviation (MAD). The reason for focussing on the ELPD is that,
+in contrast to RMSE and MAD, the ELPD evaluates the whole distribution rather
+than just point estimates to provide a measure of out-of-sample predictive
+performance, which we see as favorable from a fully Bayesian perspective 
+[@vehtari2012]. The code we provide on GitHub
 (https://github.com/paul-buerkner/LFO-CV-paper) is modularized to support
 arbitrary measures of accuracy as long as they can be represented in a pointwise
-manner, that is, as increments per observation.
-
+manner, that is, as increments per observation. In Appendix XXX, we
+provide additional simulation results for the RMSE.
 
 ## Approximate $M$-step-ahead predictions {#approximate-MSAP}
 
@@ -367,7 +372,8 @@ approximate each $p(y_{i+1:M} \,|\, y_{1:i})$ via
         { \sum_{s=1}^S w_i^{(s)}},
 \end{equation}
 
-where $w_i^{(s)}$ are the PSIS weights and $\theta^{(s)}$ are draws from the
+where $w_i^{(s)}$ are the PSIS weights computed on the basis of the
+raw importance ratios $r_i(\theta^{(s)})$ as explained in @vehtari2017psis, and $\theta^{(s)}$ are draws from the
 posterior distribution based on the initial $L$ observations. 
 To obtain $w_i^{(s)}$, we first compute the raw importance ratios
 
@@ -488,7 +494,7 @@ simulation study in which the following conditions were systematically varied:
 to $k = 0.7$ in steps of $0.1$.
 * Six different data generating models were evaluated, with linear and/or
 quadratic terms and/or autoregressive terms of order 2 (see Figure 
-\@ref(fig:simmodels)).
+\@ref(fig:simmodels) for an illustration).
 
 In all cases the time-series consisted of $N = 200$ observations and the minimal
 number of observations required before make predictions was set to $L = 25$.
@@ -525,7 +531,7 @@ preds <- as_tibble(bind_rows(preds)) %>%
    select(-`I(stime^2)`)
 ```
 
-```{r simmodels, fig.height=4, fig.cap="Illustration of the models used in the simulations."}
+```{r simmodels, fig.height=4, fig.cap="Illustration of the models used in the simulations. More details are provided in the text."}
 ggplot(preds, aes(x = time, y = Estimate)) +
   facet_wrap(~model) +
   geom_smooth(aes(ymin = Q5, ymax = Q95), stat = "identity", size = 0.5) +
@@ -537,19 +543,38 @@ Autoregressive (AR) models are some of the most commonly used time-series models
 An AR(p) model -- an autoregressive model of order $p$ -- can be defined as
 
 \begin{equation}
-y_i = \eta_i + \sum_{k = 1}^p \varphi_k y_{i - k} + \varepsilon_i,
+y_i = \eta_i + \varepsilon_i \quad \text{with} \quad
+\varepsilon_i = \sum_{k = 1}^p \varphi_k \varepsilon_{i - k} + e_i,
 \end{equation}
-
 where $\eta_i$ is the linear predictor for the $i$th observation, $\varphi_k$
-are the autoregressive parameters and $\varepsilon_i$ are pairwise independent
-errors, which are usually assumed to be normally distributed with equal variance
-$\sigma^2$. The model implies a recursive formula that allows for computing the
-right-hand side of the equation for observation $i$ based on the values of the
-equations computed for previous observations. Observations from an AR process are 
-therefore not conditionally independent by definition, but the likelihood is
-still factorizable because we can write down a separate contribution for each
-observation [see @buerkner:non-factorizable for more discussion on
-factorizability of statistical models].
+are the autoregressive parameters on the residuals $\varepsilon_i$, and $e_i$ are
+pairwise independent errors, which are usually assumed to be normally
+distributed with equal variance $\sigma^2$. The model implies a recursive
+formula that allows for computing the right-hand side of the equation for
+observation $i$ based on the values of the equations computed for previous
+observations. Observations from an AR process are therefore not conditionally
+independent by definition, but the likelihood is still factorizable because we
+can write down a separate contribution for each observation [see
+@buerkner:non-factorizable for more discussion on factorizability of statistical
+models].
+
+In the quadratic model with AR(2) effects (the most complex model in our
+simulations), the true data generating process was defined as
+\begin{equation}
+y_i = b_0 + b_1 t + b_2 t^2 + \varepsilon_i \quad \text{with} \quad
+\varepsilon_i = \varphi_1 \varepsilon_{i - 1} + \varphi_2 \varepsilon_{i - 2} + e_i,
+\end{equation}
+where $t$ is the time variable scaled to the unit interval, that is, $t = 0$ for
+the smallest time point ($1$ in our simulations) and $t = 1$ for the largest
+time point ($200$ in our simulations). Specifially, we set the true regression
+coefficients to the values of $b_0 = 0$, $b_1 = 17$, $b_2 = 25$, and the true
+autocorrelation parameters to $\varphi_1 = 0.5$, and $\varphi_2 = 0.3$ (see
+Figure \@ref(fig:simmodels) for an illustration). The choices of the regression
+coefficients were done so that neither the linear nor quadratic term dominates
+the other within the specified time frame. The values of the autocorrelation
+parameters were set to represent typical positively autocorrelated data.
+In the simulation conditions without linear and/or quadratic and/or 
+AR(2) terms, the corresponding true parameters were simply fixed to zero.
 
 In addition to exact and approximate LFO-CV, we also compute approximate LOO-CV
 for comparison. This is not because we think LOO-CV is a generally appropriate
@@ -620,21 +645,29 @@ lfo_sims <- read_rds("results/lfo_sims.rds") %>%
   select(-res)
 ```
 
+In this section, we focus on the ELPD as a measure out-of-sample predictive
+performance for reasons outlined in Section \ref{m-sap}. In Appendix XXX, we provide additional simulations for the RMSE. 
+
 Results of the 1-SAP simulations are visualized in Figure \@ref(fig:1sap).
 Comparing the columns of Figure \@ref(fig:1sap), it is clearly visible that the
-the accuracy of the PSIS approximation is independent of the threshold
-$\tau$ when $\tau$ is within the interval $[0.5,0.7]$ motivated in \@ref(psis)
-(this would not be the case if $\tau$ were allowed to be larger). 
-The proportion of observations at which refitting the model was required
-did not exceed $3\%$ under any of the conditions and only increased minimally when
-decreasing $\tau$ (see Table \@ref(tab:refits)). At least for the models
-investigated in our simulations, using $\tau = 0.7$ seems to be sufficient for
-achieving high accuracy and as such there is no need to lower the threshold below
-that value. As expected, LOO-CV (the lighter histograms in Figure
-\@ref(fig:1sap)) is a biased estimate of the 1-SAP performance for all
-non-constant models, in particular for models with a trend in the time-series.
+the accuracy of the PSIS approximation is independent of the threshold $\tau$
+when $\tau$ is within the interval $[0.5,0.7]$ motivated in \@ref(psis) [this
+would not be the case if $\tau$ was allowed to be larger; @vehtari2017psis]. For
+all conditions, the PSIS-LFO-CV approximation is highly accurate, that is, both
+unbiased and low in variance around the corresponding exact LFO-CV value
+(represented by the dashed line in Figure \@ref(fig:1sap)). The proportion of
+observations at which refitting the model was required did not exceed $3\%$
+under any of the conditions and only increased minimally when decreasing $\tau$
+(see Table \@ref(tab:refits)). At least for the models investigated in our
+simulations, using $\tau = 0.7$ seems to be sufficient for achieving high
+accuracy and as such there is no need to lower the threshold below that value.
+As expected, LOO-CV (the lighter histograms in Figure \@ref(fig:1sap)) is a
+biased estimate of the 1-SAP performance for all non-constant models, in
+particular for models with a trend in the time-series. More precisely, LOO-CV is
+positively biased, which implies that it systematically overestimates $M$-SAP
+performance of time-series models.
 
-```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
+```{r 1sap, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 1) %>% 
   select(elpd_diff_fw_lfo, elpd_diff_loo, model, tau) %>%
@@ -684,7 +717,7 @@ lfo_sims %>%
 ```
 
 Results of the 4-SAP simulations are visualized in Figure \@ref(fig:4sap).
-Comparing the columns of Figure \@ref(fig:1sap), it is again clearly visible
+Comparing the columns of Figure \@ref(fig:4sap), it is again clearly visible
 that the accuracy of the PSIS approximation is independent of the threshold
 $\tau$. The proportion of observations at which refitting the model was required
 did not exceed $3\%$ under any condition and only increased minimally when
@@ -705,7 +738,7 @@ PSIS-LFO-CV approximation becomes more uncertain as well. This is not a
 limitation of the method, but rather an artifact of the limited predictive
 capabilities of these particular models.
 
-```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
+```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 4) %>%
   select(elpd_diff_fw_lfo, model, tau) %>%
@@ -1103,7 +1136,7 @@ PSIS_LFO_CV = function(model, data, M, L, tau) {
 ```
 
 
-## Appendix B: Backward PSIS-LFO-CV
+## Appendix B: Backward PSIS-LFO-CV {-}
 
 Instead of moving forward in time, that is, starting our predictions from the
 $L$th observation, we may also move backwards, a procedure to which we will
@@ -1211,7 +1244,7 @@ be seen in Table \ref{tab:refits-both}, backward PSIS-LFO-CV requires
 considerably more refits then forward PSIS-LFO-CV. Together, this indicates
 that, in expectation, backward PSIS-LFO-CV is inferior to forward PSIS-LFO-CV.
 
-```{r 1sap-both, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
+```{r 1sap-both, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 1) %>% 
   select(starts_with("elpd_diff"), model, tau) %>%
@@ -1241,7 +1274,7 @@ lfo_sims %>%
   NULL
 ```
 
-```{r 4sap-both, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions."}
+```{r 4sap-both, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions for both forward and backward PSIS-LFO-CV. Histograms are based on 100 simulation trials of time-series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 4) %>%
   select(starts_with("elpd_diff"), model, tau, -elpd_diff_loo) %>%
@@ -1320,3 +1353,6 @@ forward and backward mode PSIS-LFO-CV. In the present paper, we did not
 investigate the possibility of multiple importance sampling in more detail, but
 it could be a promising extention to be studied in the future.
 
+## Appendix C: PSIS-LFO-CV for the RMSE {-}
+
+TODO: add plots
