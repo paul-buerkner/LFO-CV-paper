@@ -405,9 +405,10 @@ sim_fun <- function(j, conditions, ...) {
   lfo_approx_bw_elpds <- approx_lfo(
     fit, M = M, L = L, k_thres = k_thres, mode = "backward"
   )
-  lfo_approx_cb_elpds <- approx_lfo(
-    fit, M = M, L = L, k_thres = k_thres, mode = "combined"
-  )
+  # the combined mode is not yet fully implemented
+  # lfo_approx_cb_elpds <- approx_lfo(
+  #   fit, M = M, L = L, k_thres = k_thres, mode = "combined"
+  # )
   
   # return all relevant information
   list(
@@ -415,8 +416,8 @@ sim_fun <- function(j, conditions, ...) {
     loo_cv = loo_cv,
     lfo_exact_elpds = lfo_exact_elpds,
     lfo_approx_fw_elpds = lfo_approx_fw_elpds,
-    lfo_approx_bw_elpds = lfo_approx_bw_elpds,
-    lfo_approx_cb_elpds = lfo_approx_cb_elpds
+    lfo_approx_bw_elpds = lfo_approx_bw_elpds
+    # lfo_approx_cb_elpds = lfo_approx_cb_elpds
   )
 }
 

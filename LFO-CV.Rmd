@@ -1332,4 +1332,100 @@ it could be a promising extention to be studied in the future.
 
 ## Appendix C: PSIS-LFO-CV for the RMSE {-}
 
-TODO: add plots
+We may also use other measures of predictive performance than the ELPD,
+for instance the RMSE. For a scalar response $y$ and corresponding vector 
+$\hat{y}$ of a toal of $S$ posterior predictions $\hat{y}^{(s)}$, the RSME 
+is defined as 
+
+\begin{equation}
+\text{RMSE}(y, \hat{y}) = \frac{1}{S} \sum_{s=1}^S (\hat{y}^{(s)} - y)^2.
+\end{equation}
+
+If we predict multiple responses in the future (i.e., perform $M$-SAP with
+$M > 1$), we simply sum the RMSE over all those responses.
+When approximating the RMSE via PSIS, we use the (Pareto smoothed)
+importance weights $w^{(s)}$ (see Section \ref{#psis-MSAP}) to estimate
+
+\begin{equation}
+\text{RMSE}(y, \hat{y}) \approx
+  \frac{\sum_{s=1}^S w^{(s)} (\hat{y}^{(s)} - y)^2}{\sum_{s=1}^S w^{(s)}}.
+\end{equation}
+
+The remaining computations are analogous to using the ELPD as a measure of
+predictive performance in LFO-CV and so we do not spell out the details here.
+The code we provide on GitHub (https://github.com/paul-buerkner/LFO-CV-paper) is
+modularized and also has an implementation of the (approximate) RMSE for LFO-CV.
+
+Results of the 1-SAP and 4-SAP RMSE simulations are visualized in Figure
+\@ref(fig:1sap-rmse) and \@ref(fig:4sap-rmse), respectively. It is clearly
+visible that the the accuracy of the PSIS RMSE approximation is nearly
+independent of the threshold $\tau$ when $\tau$ is within the interval
+$[0.5,0.7]$ motivated in \@ref(psis) [this would not be the case if $\tau$ was
+allowed to be larger; @vehtari2017psis]. For all conditions, the PSIS-LFO-CV
+approximation is highly accurate, that is, both approximately unbiased and low
+in variance around the corresponding exact LFO-CV RMSE value (represented by the
+dashed line in Figure \@ref(fig:1sap)). Taken together, these simulations
+indicate that PSIS-LFO-CV not only works well with the ELPD but also with the
+RMSE.
+
+```{r}
+# data preparation
+lfo_sims_rmse <- read_rds("results/lfo_sims_rmse.rds") %>%
+  as_tibble() %>%
+  filter(lengths(res) > 0) %>%
+  mutate(
+    model = factor(model, levels = mlevels),
+    tau = factor(k_thres, labels = tau_levels),
+    # compute sum of pointwise ELPD values
+    rmse_exact_lfo = map_dbl(res, ~ get_elpd(.$lfo_exact_rmses)),
+    rmse_approx_fw_lfo = map_dbl(res, ~ get_elpd(.$lfo_approx_fw_rmses)),
+    # compute differences to the exact values
+    rmse_diff_fw_lfo = rmse_approx_fw_lfo - rmse_exact_lfo,
+    nrefits_fw = map_dbl(res, ~ get_refits(.$lfo_approx_fw_rmse)),
+    rel_nrefits_fw = nrefits_fw / (N - L)
+  ) %>%
+  select(-res)
+```
+
+```{r 1sap-rmse, fig.height=8, fig.cap="Simulation results of 1-step-ahead predictions using the RMSE as measure of predictive accuracy. Histograms are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
+lfo_sims_rmse %>% 
+  filter(is.na(B), M == 1) %>% 
+  select(rmse_diff_fw_lfo, model, tau) %>%
+  ggplot(aes(x = rmse_diff_fw_lfo, y = ..density..)) +
+  facet_grid(
+    model ~ tau, scales = "free_y",
+    labeller = label_parsed
+  ) +
+  geom_histogram(alpha = 0.7, fill = elpd_colors[c("lfo_fw")], bins = 20) +
+  labs(x = "RMSE difference of approximate and exact LFO-CV", y = "") +
+  geom_vline(xintercept = 0, linetype = 2) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(), 
+    legend.position = "bottom"
+  ) +
+  NULL
+```
+
+```{r 4sap-rmse, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions using the RMSE as measure of predictive accuracy. Histograms are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
+lfo_sims_rmse %>% 
+  filter(is.na(B), M == 4) %>% 
+  select(rmse_diff_fw_lfo, model, tau) %>%
+  ggplot(aes(x = rmse_diff_fw_lfo, y = ..density..)) +
+  facet_grid(
+    model ~ tau, scales = "free_y",
+    labeller = label_parsed
+  ) +
+  geom_histogram(alpha = 0.7, fill = elpd_colors[c("lfo_fw")], bins = 20) +
+  labs(x = "RMSE difference of approximate and exact LFO-CV", y = "") +
+  geom_vline(xintercept = 0, linetype = 2) +
+  theme_bw() +
+  theme(
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(), 
+    legend.position = "bottom"
+  ) +
+  NULL
+```
+
