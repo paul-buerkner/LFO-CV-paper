@@ -119,7 +119,7 @@ required refits, exact LOO-CV is computationally expensive, in particular when
 performing full Bayesian inference and refitting the model means estimating a
 new posterior distribution rather than a point estimate. But it is possible to
 approximate exact LOO-CV using Pareto smoothed importance sampling 
-[PSIS; @vehtari2017loo; @vehtari2017psis]. 
+[PSIS; @vehtari2017loo; @vehtari2019psis]. 
 PSIS-LOO-CV only requires a single fit of the full model and has sensitive
 diagnostics for assessing the validity of the approximation.
 
@@ -270,7 +270,7 @@ $i$ under consideration (all $i \in \{L, \ldots, N - M\}$).
 Below, we present a new algorithm to reduce the number of models that need
 to be fit for the purpose of obtaining each of the densities 
 $p(y_{i+1:M} \,|\, y_{1:i})$. This algorithm relies in a central manner on
-Pareto smoothed importance sampling [@vehtari2017loo; @vehtari2017psis], which
+Pareto smoothed importance sampling [@vehtari2017loo; @vehtari2019psis], which
 we will briefly review next.
 
 ### Pareto smoothed importance sampling {#psis}
@@ -312,9 +312,9 @@ stabilize the computations, we can perform the additional step of regularizing
 the largest raw importance ratios using the corresponding quantiles of the
 generalized Pareto distribution fitted to the largest raw importance ratios.
 This procedure is called Pareto smoothed importance sampling 
-[PSIS; @vehtari2017loo; @vehtari2017psis, @loo2019] and has been demonstrated to
+[PSIS; @vehtari2017loo; @vehtari2019psis, @loo2019] and has been demonstrated to
 have a lower error and faster convergence rate than other commonly used
-regularization techniques [@vehtari2017psis].
+regularization techniques [@vehtari2019psis].
 
 In addition, PSIS comes with a useful diagnostic to evaluate
 the quality of the importance sampling approximation. The shape parameter $k$
@@ -324,10 +324,10 @@ weights (smoothed ratios) and the actual importance sampling estimate.
 When $k<0.5$, the weight distribution has finite variance and the central limit
 theorem ensures fast convergence of the importance sampling estimate with
 increasing number of draws. This implies that approximate LOO-CV via PSIS is
-highly accurate for $k<0.5$ [@vehtari2017psis]. For $0.5 \leq k < 1$, a
+highly accurate for $k<0.5$ [@vehtari2019psis]. For $0.5 \leq k < 1$, a
 generalized central limit theorem holds, but the convergence rate drops quickly
-as $k$ increases [@vehtari2017psis].  In practice, PSIS has been shown to be
-relatively robust for $k < 0.7$ [@vehtari2017loo; @vehtari2017psis]. As such,
+as $k$ increases [@vehtari2019psis].  In practice, PSIS has been shown to be
+relatively robust for $k < 0.7$ [@vehtari2017loo; @vehtari2019psis]. As such,
 the default threshold is set to $0.7$ when performing 
 PSIS LOO-CV [@vehtari2017loo;@loo2019].
 
@@ -350,7 +350,7 @@ approximate each $p(y_{i+1:M} \,|\, y_{1:i})$ via
 \end{equation}
 
 where $w_i^{(s)}$ are the PSIS weights computed on the basis of the
-raw importance ratios $r_i(\theta^{(s)})$ as explained in @vehtari2017psis, and $\theta^{(s)}$ are draws from the
+raw importance ratios $r_i(\theta^{(s)})$ as explained in @vehtari2019psis, and $\theta^{(s)}$ are draws from the
 posterior distribution based on the initial $L$ observations. 
 To obtain $w_i^{(s)}$, we first compute the raw importance ratios
 
@@ -377,7 +377,7 @@ the variability of the importance ratios $r_i^{(s)}$ will become too large and
 importance sampling will fail. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
-distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
+distribution first cross a certain threshold $\tau$ [@vehtari2019psis]. Only
 then do we refit the model using the observations up to $i^\star_1$ and 
 restart the process from there. Until the next refit we have 
 $J_i = \{i^\star_1+1, \ldots, i \}$ for $i^\star_1 < i$, 
@@ -630,7 +630,7 @@ Results of the 1-SAP simulations are visualized in Figure \@ref(fig:1sap).
 Comparing the columns of Figure \@ref(fig:1sap), it is clearly visible that the
 the accuracy of the PSIS approximation is independent of the threshold $\tau$
 when $\tau$ is within the interval $[0.5,0.7]$ motivated in \@ref(psis) [this
-would not be the case if $\tau$ was allowed to be larger; @vehtari2017psis]. For
+would not be the case if $\tau$ was allowed to be larger; @vehtari2019psis]. For
 all conditions, the PSIS-LFO-CV approximation is highly accurate, that is, both
 unbiased and low in variance around the corresponding exact LFO-CV value
 (represented by the dashed line in Figure \@ref(fig:1sap)). The proportion of
@@ -1155,7 +1155,7 @@ variability of the importance ratios $r_i^{(s)}$ will become too large and
 importance sampling fails. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
-distribution first cross a certain threshold $\tau$ [@vehtari2017psis]. Only
+distribution first cross a certain threshold $\tau$ [@vehtari2019psis]. Only
 then do we refit the model using only observations up to $i^\star_1$ and then
 restart the process. Until the next refit, we thus have $J_i = \{i+1, \ldots,
 i^\star_1 \}$ for $i < i^\star_1$, as the refitted model only contains the
@@ -1361,7 +1361,7 @@ Results of the 1-SAP and 4-SAP RMSE simulations are visualized in Figure
 visible that the the accuracy of the PSIS RMSE approximation is nearly
 independent of the threshold $\tau$ when $\tau$ is within the interval
 $[0.5,0.7]$ motivated in \@ref(psis) [this would not be the case if $\tau$ was
-allowed to be larger; @vehtari2017psis]. For all conditions, the PSIS-LFO-CV
+allowed to be larger; @vehtari2019psis]. For all conditions, the PSIS-LFO-CV
 approximation is highly accurate, that is, both approximately unbiased and low
 in variance around the corresponding exact LFO-CV RMSE value (represented by the
 dashed line in Figure \@ref(fig:1sap)). Taken together, these simulations
