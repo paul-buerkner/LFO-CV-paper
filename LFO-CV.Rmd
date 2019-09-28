@@ -220,7 +220,7 @@ to [c.f., @bernardo1994; @vehtari2012]:
 
 The quantities $p(y_{i+1:M} \,|\, y_{1:i})$ can be computed with the help of the
 posterior distribution $p(\theta \,|\, y_{1:i})$ of the parameters $\theta$
-conditional on only the first $i-1$ observations of the time series:
+conditional on only the first $i$ observations of the time series:
 
 \begin{equation}
 \label{Lpred}
