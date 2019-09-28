@@ -391,7 +391,7 @@ particle or Monte Carlo filtering [e.g., @gordon1993; @kitagawa1996;
 entails moving forward in time and using importance sampling to approximate the
 next state from the information in the previous states [@kitagawa1996;
 @andrieu2010]. However, in our case we are assuming we can sample from the
-posterior distribution and instead concerned with estimating the model's
+posterior distribution and are instead concerned with estimating the model's
 predictive performace. Unlike SMC, PSIS-LFO-CV also entails a full recomputation
 of the model via Markov chain Monte Carlo (MCMC) once importance sampling fails.
 
@@ -400,8 +400,8 @@ value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We refit as many times as is required
 (only when $k > \tau$) until we arrive at observation $i = N - M$. A detailed
 description of the algorithm in the form of pseudo code is provided in Appendix
-A. If the data contains multiple independent time series, the algorithm should
-be applied to each of the time series separately, and the resulting ELPD values
+A. If the data are comprised of multiple independent time series, the algorithm should
+be applied to each of the time series separately and the resulting ELPD values
 can be summed up afterwards.
 
 ```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
