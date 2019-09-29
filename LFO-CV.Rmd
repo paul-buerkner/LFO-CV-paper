@@ -708,15 +708,6 @@ determining the necessity of a refit is independent of $M$ (see Section
 the number of observations predicted at each step (4 vs. 1) makes 4-SAP LFO-CV
 and LOO-CV incomparable.
 
-When looking at the bottom three rows of Figure \@ref(fig:4sap), we see that
-there is a lot of variation around the true 4-SAP ELPD value across simulation
-trials, although in expectation PSIS-LFO-CV is still unbiased. This variation is
-caused by the fact that we predict _four_ observations into the future using AR
-models of at most order _two_. Predictions for the 3rd and 4th observations into
-the future will therefore have much greater uncertainty and so will the
-PSIS-LFO-CV approximation. This is not a limitation of the method, but rather an
-artifact of the limited predictive capabilities of these particular models.
-
 ```{r 4sap, fig.height=8, fig.cap="Simulation results of 4-step-ahead predictions. Histograms are based on 100 simulation trials of time series with $N = 200$ observations requiring at least $L = 25$ observations to make predictions. The black dashed lines indicates the exact LFO-CV result."}
 lfo_sims %>% 
   filter(is.na(B), M == 4) %>%
