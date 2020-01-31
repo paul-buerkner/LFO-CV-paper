@@ -278,7 +278,8 @@ mlevels <- c(
   "AR2-only", "AR2-linear", "AR2-quadratic"
 )
 tau_levels <- TeX(paste0("$\\tau$ = ", c(0.5, 0.6, 0.7)))
-lfo_sims <- read_rds("results/lfo_sims.rds") %>%
+lfo_sims <- read_rds("results/lfo_sims_1sap.rds") %>%
+  bind_rows(read_rds("results/lfo_sims_4sap.rds")) %>%
   as_tibble() %>%
   mutate(
     model = factor(model, levels = mlevels),
@@ -444,11 +445,6 @@ Resources:
 - Preprint: https://arxiv.org/abs/1902.06281
 - GitHub: https://github.com/paul-buerkner/LFO-CV-paper 
 - Email: paul.buerkner@gmail.com
-
-##
-
-\centering
-\Large Thank You!
 
 
 ## Importance Sampling
