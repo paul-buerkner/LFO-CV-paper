@@ -202,7 +202,7 @@ can use the expected log predictive density [ELPD; @vehtari2017loo], which,
 for M-SAP, can be defined as
 
 [^operator]: Note that the here-used "$:$" operator has precedence over the 
-"$+$" operator following common programming language definitions.
+"$+$" operator following the R programming language definition.
 
 \begin{equation}
 \label{ELPD}
@@ -1093,19 +1093,19 @@ LFO-CV estimates is hard to quantify. There are at least three types of
 uncertainty which could be considered here. First, there is uncertainty induced
 by approximating exact LFO-CV using (Pareto smoothed) importance sampling. Based
 on theoretical considerations of the approximation and numerical experiments
-both presented in @vehtari2019psis, any PSIS approximation will be very close to the
-exact value as long as the Pareto $k$ diagnostic does not exceed the threshold
-of $0.7$, which we used as the refit criterion in our approximate LFO-CV
-approach. Second, there is uncertainty induced by the finite number of posterior
-draws but this uncertainty should be small with just a few thousand draws
-[@vehtari2017loo] and can easily be reduced further by sampling more draws. Third,
-there is uncertainty caused by finite amounts of data. One could use an
-analogous approach to what is done in approximate LOO-CV by computing the
-standard error across the pointwise estimates for each observation
-[@vehtari2017loo]. However, this requires the assumption of conditional
-independence, which is not justified at least for $M$-step-ahead predictions
-with $M > 1$. Investigating uncertainty measures for (approximate) LFO-CV 
-is left for future research.
+both presented in @vehtari2019psis, any PSIS approximation will be very close to
+the exact value as long as the Pareto $k$ diagnostic does not exceed the
+threshold of $0.7$, which we used as the refit criterion in our approximate
+LFO-CV approach. Second, there is uncertainty caused by finite amounts of data.
+For 1-step-ahead predictions, we can use an analogous approach to what is done in
+approximate LOO-CV by computing the standard error across the pointwise
+estimates for each observation [@vehtari2017loo]. More generally, for
+$M$-step-ahead predictions, we can compute the standard error by using every
+$M$th value which are then independent. Third, there is uncertainty induced by
+the finite number of posterior draws but this uncertainty tends to be negligable
+with just a few thousand draws compared to the second source of uncertainty
+[@vehtari2017loo]. Investigating uncertainty measures for (approximate) LFO-CV
+in more detail is left for future research.
 
 Lastly, we want to briefly note that LFO-CV can also be used to compute marginal
 likelihoods. Using basic rules of conditional probability, we can factor the
@@ -1195,10 +1195,10 @@ $p(y_{i+1:M} \,|\, y_{1:i})$ via
 \end{equation}
 
 where $w_i^{(s)}$ are the PSIS weights and $\theta^{(s)} =
-\theta^{(s)}_{1:i^\star}$ are draws from the posterior distribution 
-based on the first $1:i^\star$ observations. In backward LFO-CV, we start
-using _all_ observations, that is, set $i^\star = N$. To obtain $w_i^{(s)}$, we
-first compute the raw importance ratios
+\theta^{(s)}_{1:i^\star}$ are draws from the posterior distribution based on the
+first $1:i^\star$ observations. In backward LFO-CV, we start using the model
+based on *all* observations, that is, set $i^\star = N$. To obtain $w_i^{(s)}$,
+we first compute the raw importance ratios
 
 \begin{equation}
 r_i^{(s)} = r_i(\theta^{(s)}) = 
@@ -1232,8 +1232,8 @@ $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
 distribution first cross a certain threshold $\tau$ [@vehtari2019psis]. Only
 then do we refit the model using only observations up to $i^\star_1$ by setting
-$i^\star = i^\star_1$ and restarting the process.
-An illustration of this procedure is shown
+$\theta^{(s)} = \theta^{(s)}_{1:i^\star_1}$ as well as $i^\star = i^\star_1$ 
+and restarting the process. An illustration of this procedure is shown
 in Figure \@ref(fig:vis-msap-bw). In some cases we may only need to refit once
 and in other cases we will find a value $i^\star_2$ that requires a second
 refitting, maybe an $i^\star_3$ that requires a third refitting, and so on. We
