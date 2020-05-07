@@ -380,9 +380,9 @@ First, we compute the raw importance ratios
 r_i^{(s)} = r_i(\theta^{(s)}) = 
 \frac{f_{1:i}(\theta^{(s)})}{f_{1:i^\star}(\theta^{(s)})} 
 \propto \frac{
-p(\theta^{(s)}_{1:L}) \prod_{j \in 1:i} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}) 
+p(\theta^{(s)}) \prod_{j \in 1:i} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}) 
 }{
-p(\theta^{(s)}_{1:L}) \prod_{j \in 1:i^\star} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}) 
+p(\theta^{(s)}) \prod_{j \in 1:i^\star} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}) 
 }
 = \prod_{j \in (i^\star + 1):i} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}),
 \end{equation}
