@@ -42,7 +42,8 @@ header-includes:
    - \usepackage[T1]{fontenc}
    - \usepackage{setspace}
    - \onehalfspacing
-   - \setcitestyle{round}
+   # - \DeclareMathOperator{\istar}{i^\star}
+   # - \setcitestyle{round}
    - \newcommand\numberthis{\addtocounter{equation}{1}\tag{\theequation}}
 editor_options: 
   chunk_output_type: console
@@ -194,11 +195,14 @@ p(y_{i+1:M} \,|\, y_{1:i}) =
   p(y_{i+1}, \ldots, y_{i + M} \,|\, y_{1},...,y_{i}) 
 \end{equation}
 
-for each $i \in \{L, \ldots, N - M\}$, where we use 
-$y_{i+1:M} = (y_{i+1}, \ldots, y_{i + M})$ and $y_{1:i} = (y_{1}, \ldots, y_{i})$ 
-to shorten the notation. As a global measure of predictive accuracy, we
+for each $i \in \{L, \ldots, N - M\}$, where we use $y_{1:i} = (y_{1}, \ldots, y_{i})$ 
+and $y_{i+1:M} = y_{(i+1):(i+M)} = (y_{i+1}, \ldots, y_{i + M})$
+to shorten the notation[^operator]. As a global measure of predictive accuracy, we
 can use the expected log predictive density [ELPD; @vehtari2017loo], which, 
 for M-SAP, can be defined as
+
+[^operator]: Note that the here-used "$:$" operator has precedence over the 
+"$+$" operator following common programming language definitions.
 
 \begin{equation}
 \label{ELPD}
@@ -208,9 +212,14 @@ for M-SAP, can be defined as
 \end{equation}
 
 The distribution $p_t(\tilde{y}_{i+1:M})$ describes the true data generating
-process for new data $\tilde{y}_{i+1:M}$. As these true data generating processes
-are unknown, we approximate the ELPD using LFO-CV of the observed responses 
-$y_{i+1:M}$, which constitute a particular realization of $\tilde{y}_{i+1:M}$.
+process for new data $\tilde{y}_{i+1:M}$. As these true data generating
+processes are unknown, we approximate the ELPD using LFO-CV of the observed
+responses $y_{i+1:M}$, which constitute a particular realization of
+$\tilde{y}_{i+1:M}$. This approach of approximationg the true data generating
+process with observed data is fundamental to all cross-validation procedures.
+As we have no direct access to the underlying truth, the error implied by
+this approximation is hard to quantify but also unavoidable [c.f., @bernardo1994].
+
 Plugging in the realization $y_{i+1:M}$ for $\tilde{y}_{i+1:M}$ leads
 to [c.f., @bernardo1994; @vehtari2012]:
  
@@ -229,13 +238,24 @@ p(y_{i+1:M} \,| \, y_{1:i}) =
     p(\theta\,|\,y_{1:i}) \, {\rm d} \theta. 
 \end{equation}
 
-Most time series models have a non-factorizable likelihood, that is, $y_{i+1:M}$
-depends on $y_{1:i}$ even after conditioning on $\theta$. As such, we cannot
-simplify the integrand in (\ref{Lpred}) as would have been possible for
-factorizable likelihoods. Instead, we always need to take $y_{1:i}$ into account
-when computing the predictive density of $y_{i+1:M}$ (see
-@buerkner:non-factorizable for more discussion on computing predictive densities
-of non-factorizable models).
+In order to evaluate predictive performance of future data, it is important to
+predict $y_{i+1:M}$ only conditioning on the past data $y_{1:i}$ and not on the
+present data $y_{i+1:M}$. Including the present data in the posterior
+estimation, that is, using the posterior $p(\theta\,|\,y_{1:(i+M)})$ in 
+\eqref{Lpred}, would result in evaluating in-sample fit. This corresponds to
+what @vehtari2017loo call *log-predictive density* (LPD), which overestimates
+predictive performance for future data [@vehtari2017loo].
+
+Most time series models do not have conditionally independent observations, that
+is, $y_{i+1:M}$ depend on $y_{1:i}$ even after conditioning on $\theta$. As
+such, we cannot simplify the integrand in (\ref{Lpred}) and always need to take
+$y_{1:i}$ into account when computing the predictive density of $y_{i+1:M}$. The
+concept of conditional independence of observations is closely related to the
+concept of factorizability of likelihoods. For the purpose of LFO-CV, we can
+safely use the time-ordering naturally present in time-series data to obtain a
+factorized likelihood even if observations are not conditionally independent.
+See @buerkner:non-factorizable for discussion on computing predictive densities 
+of non-factorized models and factorizability in general.
 
 In practice, we will not be able to directly solve the integral in 
 (\@ref(Lpred)), but instead have to use Monte-Carlo methods to approximate it.
@@ -312,7 +332,7 @@ stabilize the computations, we can perform the additional step of regularizing
 the largest raw importance ratios using the corresponding quantiles of the
 generalized Pareto distribution fitted to the largest raw importance ratios.
 This procedure is called Pareto smoothed importance sampling 
-[PSIS; @vehtari2017loo; @vehtari2019psis, @loo2019] and has been demonstrated to
+[PSIS; @vehtari2017loo; @vehtari2019psis; @loo2019] and has been demonstrated to
 have a lower error and faster convergence rate than other commonly used
 regularization techniques [@vehtari2019psis].
 
@@ -326,8 +346,9 @@ theorem ensures fast convergence of the importance sampling estimate with
 increasing number of draws. This implies that approximate LOO-CV via PSIS is
 highly accurate for $k<0.5$ [@vehtari2019psis]. For $0.5 \leq k < 1$, a
 generalized central limit theorem holds, but the convergence rate drops quickly
-as $k$ increases [@vehtari2019psis].  In practice, PSIS has been shown to be
-relatively robust for $k < 0.7$ [@vehtari2017loo; @vehtari2019psis]. As such,
+as $k$ increases [@vehtari2019psis]. Using both mathematical analysis
+and numerical experiments, PSIS has been shown to be
+relatively robust for $k < 0.7$  [@vehtari2017loo; @vehtari2019psis]. As such,
 the default threshold is set to $0.7$ when performing 
 PSIS LOO-CV [@vehtari2017loo;@loo2019].
 
@@ -337,53 +358,76 @@ PSIS LOO-CV [@vehtari2017loo;@loo2019].
 We now turn back to the task of estimating $M$-step-ahead performance for
 time series models. First, we refit the model using the first $L$ observations
 of the time series and then perform a single exact $M$-step-ahead prediction 
-step for $p(y_{L+1:M} \,|\, y_{1:L})$. 
+step for $p(y_{L+1:M} \,|\, y_{1:L})$ as per \eqref{Lpred}. 
 Recall that $L$ is the minimum number of observations we have deemed
 acceptable for making predictions (setting $L=0$ means the first data point will
-be predicted only based on the prior). Next, starting with $i = L + 1$, we
+be predicted only based on the prior). We define $i^\star = L$ as the current
+point of refit. Next, starting with $i = i^\star + 1$, we
 approximate each $p(y_{i+1:M} \,|\, y_{1:i})$ via
 
 \begin{equation}
  p(y_{i+1:M} \,|\, y_{1:i}) \approx
-   \frac{ \sum_{s=1}^S w_i^{(s)}\, p(y_{i+1:M} \,|\, \theta^{(s)})}
+   \frac{ \sum_{s=1}^S w_i^{(s)}\, p(y_{i+1:M} \,|\, y_{1:i}, \theta^{(s)})}
         { \sum_{s=1}^S w_i^{(s)}},
 \end{equation}
 
-where $w_i^{(s)}$ are the PSIS weights computed on the basis of the
-raw importance ratios $r_i(\theta^{(s)})$ as explained in @vehtari2019psis, and $\theta^{(s)}$ are draws from the
-posterior distribution based on the initial $L$ observations. 
-To obtain $w_i^{(s)}$, we first compute the raw importance ratios
+where $\theta^{(s)} = \theta^{(s)}_{1:i^\star}$ are draws from the
+posterior distribution based on the first $i^\star$ observations
+and $w_i^{(s)}$ are the PSIS weights obtained in two steps.
+First, we compute the raw importance ratios
 
 \begin{equation}
-r_i^{(s)} = r_i(\theta^{(s)}) = \frac{f_i(\theta^{(s)})}{g(\theta^{(s)})} 
+r_i^{(s)} = r_i(\theta^{(s)}) = 
+\frac{f_{1:i}(\theta^{(s)})}{f_{1:i^\star}(\theta^{(s)})} 
 \propto \frac{
-\prod_{j \in J} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+p(\theta^{(s)}_{1:L}) \prod_{j \in 1:i} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}) 
 }{
-\prod_{j \in J \backslash J_i} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+p(\theta^{(s)}_{1:L}) \prod_{j \in 1:i^\star} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}) 
 }
-= \prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)}),
+= \prod_{j \in (i^\star + 1):i} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)}),
 \end{equation}
 
-with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
-above. The index set $J_i$ contains the indices of all observations which are
-part of the data for the model whose predictive performance we are trying to
-approximate but not for the actually fitted model. Until a refit becomes
-necessary (see below), we will have $J_i = \{L + 1, \ldots, i\}$.
-For the starting value $i = L + 1$, $J_i$ is just $\{i\}$.
+and then stabilize them using PSIS as described in Section \ref{psis}. The
+function $f_{1:i}$ denotes the posterior distribution based on the first $i$
+observations, that is, $f_{1:i} = p(\theta \,|\, y_{1:i})$, with $f_{1:i^\star}$
+defined analogously. The index set $(i^\star + 1):i$ indicates all observations
+which are part of the data for the model $f_{1:i}$ whose predictive performance
+we are trying to approximate but not for the actually fitted model
+$f_{1:i^\star}$. The proportional statement arises from the fact that
+we ignore the normalizing constants $p(y_{1:i})$ and $p(y_{1:i^\star})$
+of the compared posteriors, which leads to a self-normalized variant of
+PSIS [c.f. @vehtari2017loo].
 
-Continuing with the next observation, we gradually increase $i$ by $1$ 
-(we move forward in time) and repeat the process. At some observation $i$, 
-the variability of the importance ratios $r_i^{(s)}$ will become too large and
+<!--
+The index sets $J_i$
+contain the indices of all observations up to and including observation $i$,
+that is, $J_i = \{1, \ldots, i\}$ and $J_L = \{1, \ldots, L\}$. The index set
+$J_i^\star$ contains the indices of all observations
+which are part of the data for the model whose predictive performance we are
+trying to approximate but not for the actually fitted model. That is, until a refit
+becomes necessary (see below), we will have 
+$J_i^\star = J_i \backslash J_L = \{L + 1, \ldots, i\}$.
+-->
+
+Continuing with the next observation, we gradually increase $i$ by $1$ (we move
+forward in time) and repeat the process. At some observation $i$, the
+variability of the importance ratios $r_i^{(s)}$ will become too large and
 importance sampling will fail. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
 distribution first cross a certain threshold $\tau$ [@vehtari2019psis]. Only
-then do we refit the model using the observations up to $i^\star_1$ and 
-restart the process from there. Until the next refit we have 
-$J_i = \{i^\star_1+1, \ldots, i \}$ for $i^\star_1 < i$, 
-as the refitted model only contains the observations up to and including index
-$i^\star_1$. An illustration of this procedure is shown in Figure
-\@ref(fig:vis-msap). 
+then do we refit the model using the observations up to $i^\star_1$ and restart
+the process from there by setting $\theta^{(s)} = \theta^{(s)}_{1:i^\star_1}$
+and $i^\star = i^\star_1$ until the next refit.
+An illustration of this procedure is shown in Figure
+\@ref(fig:vis-msap).
+
+<!--
+Until the next refit, we have $J_i^\star = J_i \backslash
+J_{i^\star_1} = \{i^\star_1+1, \ldots, i \}$ for $i^\star_1 < i$, as the
+refitted model only contains the observations up to and including index
+$i^\star_1$. 
+-->
 
 This bears some resemblance to Sequential Monte Carlo, also known as
 particle or Monte Carlo filtering [e.g., @gordon1993; @kitagawa1996;
@@ -392,7 +436,7 @@ entails moving forward in time and using importance sampling to approximate the
 next state from the information in the previous states [@kitagawa1996;
 @andrieu2010]. However, in our case we are assuming we can sample from the
 posterior distribution and are instead concerned with estimating the model's
-predictive performace. Unlike SMC, PSIS-LFO-CV also entails a full recomputation
+predictive performance. Unlike SMC, PSIS-LFO-CV also entails a full recomputation
 of the model via Markov chain Monte Carlo (MCMC) once importance sampling fails.
 
 In some cases we may only need to refit once and in other cases we will find a
@@ -400,9 +444,12 @@ value $i^\star_2$ that requires a second refitting, maybe an $i^\star_3$ that
 requires a third refitting, and so on. We refit as many times as is required
 (only when $k > \tau$) until we arrive at observation $i = N - M$. A detailed
 description of the algorithm in the form of pseudo code is provided in Appendix
-A. If the data are comprised of multiple independent time series, the algorithm should
+A. If the data are comprised of multiple *independent* time series, the algorithm can
 be applied to each of the time series separately and the resulting ELPD values
-can be summed up afterwards.
+can be summed up afterwards. If the data are comprised of multiple *dependent*
+time series, the algorithm should be applied to the joint likelihood across all
+time-series for each observation $i$ in order to take the dependency into
+account.
 
 ```{r vis-msap, fig.width=8, fig.height=3, fig.cap="Visualisation of PSIS approximated one-step-ahead predictions. Predicted observations are indicated by **X**. In the shown example, the model was last refit at the $i^\\star = 4$th observation."}
 status_levels <- c("included", "included (PSIS)", "left out")
@@ -443,7 +490,7 @@ is approximated by a distribution based on more observations and, as such,
 the proposal distribution is narrower than the target. This can result in 
 highly influential importance weights more often than when 
 the proposal is wider than the target, which is the case
-for the forward PSIS-LFO-CV described above. In Appendix B we show 
+for the forward PSIS-LFO-CV described above. In Appendix B, we show 
 that moving backwards indeed requires more refits than moving forward, and 
 without any increase in accuracy. When we refer to the PSIS-LFO-CV algorithm 
 in the main text we are referring to the forward version.
@@ -508,7 +555,7 @@ preds <- as_tibble(bind_rows(preds)) %>%
    select(-`I(stime^2)`)
 ```
 
-```{r simmodels, fig.height=4, fig.cap="Illustration of the models used in the simulations. More details are provided in the text."}
+```{r simmodels, fig.height=4, fig.cap="Illustration of the models used in the simulations. Black points are observed data. The blue line represents posterior predictions of the model resembling the true data-generating process with 90% prediction intervals shown in gray. More details are provided in the text."}
 ggplot(preds, aes(x = time, y = Estimate)) +
   facet_wrap(~model) +
   geom_smooth(aes(ymin = Q5, ymax = Q95), stat = "identity", size = 0.5) +
@@ -530,7 +577,7 @@ distributed with equal variance $\sigma^2$. The model implies a recursive
 formula that allows for computing the right-hand side of the equation for
 observation $i$ based on the values of the equations computed for previous
 observations. Observations from an AR process are therefore not conditionally
-independent by definition, but the likelihood is still factorizable because we
+independent by definition, but the likelihood still factorizes because we
 can write down a separate contribution for each observation [see
 @buerkner:non-factorizable for more discussion on factorizability of statistical
 models].
@@ -543,15 +590,20 @@ y_i = b_0 + b_1 t + b_2 t^2 + \varepsilon_i \quad \text{with} \quad
 \end{equation}
 where $t$ is the time variable scaled to the unit interval, that is, $t = 0$ for
 the smallest time point ($1$ in our simulations) and $t = 1$ for the largest
-time point ($200$ in our simulations). Specifially, we set the true regression
+time point ($200$ in our simulations). Specifically, we set the true regression
 coefficients to the values of $b_0 = 0$, $b_1 = 17$, $b_2 = 25$, and the true
 autocorrelation parameters to $\varphi_1 = 0.5$, and $\varphi_2 = 0.3$ (see
 Figure \@ref(fig:simmodels) for an illustration). The choices of the regression
 coefficients were done so that neither the linear nor quadratic term dominates
 the other within the specified time frame. The values of the autocorrelation
 parameters were set to represent typical positively autocorrelated data.
-In the simulation conditions without linear and/or quadratic and/or 
-AR(2) terms, the corresponding true parameters were simply fixed to zero.
+In the simulation conditions without linear and/or quadratic and/or AR(2) terms,
+the corresponding true parameters were simply fixed to zero. We always fit the
+true data generating model to the data. This is neither required for the
+validity of LFO-CV in general nor for the validity of the comparison between
+exact and approximate versions but simply a choice of convenience. For example,
+a linear model without autocorrelation is used when all but $b_0$ and $b_1$ were
+set to zero in the simulations.
 
 In addition to exact and approximate LFO-CV, we also computed approximate LOO-CV
 for comparison. This is not because we think LOO-CV is a generally appropriate
@@ -827,7 +879,7 @@ all of the pointwise ELPD contributions (see the left panel of Figure
 \@ref(fig:lh-pw-elpd)). In comparison, PSIS-LOO-CV returns
 ${\rm ELPD}_{\rm loo} =$ `r fmt(loo_lh$estimates[1, 1], 1)`,
 overestimating the predictive performance and as suggested by our simulation
-results for stationary autoregessive models (see fourth row of Figure
+results for stationary autoregressive models (see fourth row of Figure
 \@ref(fig:1sap)). Plotting the Pareto $k$ estimates reveals that the model had
 to be refit `r lh_nrefits` times, out of a total of $N - L =$ `r N - L` predicted
 observations (see Figure \@ref(fig:lh-pareto-k)). On average, this means one
@@ -1036,6 +1088,25 @@ However, in our numerical experiments, we were able to reduce to computation
 time by a factor of roughly 25 to 100 compared to exact LFO-CV, which is
 enough to make LFO-CV realistic for many applications.
 
+A limitation of our current approach is that the uncertainty in the approximate
+LFO-CV estimates is hard to quantify. There are at least three types of
+uncertainty which could be considered here. First, there is uncertainty induced
+by approximating exact LFO-CV using (Pareto smoothed) importance sampling. Based
+on theoretical considerations of the approximation and numerical experiments
+both presented in @vehtari2019psis, any PSIS approximation will be very close to the
+exact value as long as the Pareto $k$ diagnostic does not exceed the threshold
+of $0.7$, which we used as the refit criterion in our approximate LFO-CV
+approach. Second, there is uncertainty induced by the finite number of posterior
+draws but this uncertainty should be small with just a few thousand draws
+[@vehtari2017loo] and can easily be reduced further by sampling more draws. Third,
+there is uncertainty caused by finite amounts of data. One could use an
+analogous approach to what is done in approximate LOO-CV by computing the
+standard error across the pointwise estimates for each observation
+[@vehtari2017loo]. However, this requires the assumption of conditional
+independence, which is not justified at least for $M$-step-ahead predictions
+with $M > 1$. Investigating uncertainty measures for (approximate) LFO-CV 
+is left for future research.
+
 Lastly, we want to briefly note that LFO-CV can also be used to compute marginal
 likelihoods. Using basic rules of conditional probability, we can factor the
 log marginal likelihood as
@@ -1049,14 +1120,18 @@ choose to predict *all* observations using their respective past (the very
 first observation is only predicted from the prior). As such, marginal
 likelihoods may be approximated using PSIS-LFO-CV. Although this approach is
 unlikely to be more efficient than methods specialized for computing marginal
-likelihoods (e.g., bridge sampling [@meng1996; @meng2002; @gronau2017]), it may
+likelihoods [e.g., bridge sampling; @meng1996; @meng2002; @gronau2017], it may
 be a noteworthy option if for some reason other methods fail.
 
 # Acknowledgments
 
-We thank Daniel Simpson, Shira Mitchell, and M\r{a}ns Magnusson for helpful
-comments and discussions on earlier versions of this paper. We also acknowledge
-the computational resources provided by the Aalto Science-IT project.
+We thank Daniel Simpson, Shira Mitchell, M\r{a}ns Magnusson, and anonymous
+reviewers for helpful comments and discussions on earlier versions of this
+paper. We acknowledge the Academy of Finland (grants 298742, 313122) as well as
+the Technology Industries of Finland Centennial Foundation (grant 70007503;
+Artificial Intelligence forResearch and Development) for partial support of this
+work. We also acknowledge the computational resources provided by the Aalto
+Science-IT project.
 
 \newpage
 
@@ -1115,32 +1190,39 @@ $p(y_{i+1:M} \,|\, y_{1:i})$ via
 
 \begin{equation}
  p(y_{i+1:M} \,|\, y_{1:i}) \approx
-   \frac{ \sum_{s=1}^S w_i^{(s)}\, p(y_{i+1:M} \,|\, \theta^{(s)})}
+   \frac{ \sum_{s=1}^S w_i^{(s)}\, p(y_{i+1:M} \,|\, y_{1:i}, \theta^{(s)})}
         { \sum_{s=1}^S w_i^{(s)}},
 \end{equation}
 
-where $w_i^{(s)}$ are the PSIS weights and $\theta^{(s)}$ are draws from the
-posterior distribution based on _all_ observations. To obtain $w_i^{(s)}$, we
+where $w_i^{(s)}$ are the PSIS weights and $\theta^{(s)} =
+\theta^{(s)}_{1:i^\star}$ are draws from the posterior distribution 
+based on the first $1:i^\star$ observations. In backward LFO-CV, we start
+using _all_ observations, that is, set $i^\star = N$. To obtain $w_i^{(s)}$, we
 first compute the raw importance ratios
 
 \begin{equation}
-r_i^{(s)} = r_i(\theta^{(s)}) = \frac{f_i(\theta^{(s)})}{g(\theta^{(s)})} 
+r_i^{(s)} = r_i(\theta^{(s)}) = 
+\frac{f_{1:i}(\theta^{(s)})}{f_{1:i^\star}(\theta^{(s)})} 
 \propto \frac{
-\prod_{j \in J \backslash J_i} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+p(\theta^{(s)}) \prod_{j \in 1:i} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)})
 }{
-\prod_{j \in J} p(y_j \,|\, \,\theta^{(s)}) p(\theta^{(s)})
+p(\theta^{(s)}) \prod_{j \in 1:i^\star} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)})
 }
-= \frac{1}{\prod_{j \in J_i} p(y_j \,|\, \,\theta^{(s)})},
+= \frac{1}{\prod_{j \in (i+1):i^\star} p(y_j \,|\, y_{1:(j-1)}, \theta^{(s)})},
 \end{equation}
 
-with $J = \{1, \ldots, N\}$, and then stabilize them using PSIS as described
-above. The index set $J_i$ contains the indices of all observations which are
-part of the data for the model being fitted but not for the model whose
-predictive performance we are trying to approximate. That is, for the starting
-value $i = N - M$, we have $J_i = \{i+1, \ldots, N\}$. This approach to
-computing importance ratios is a generalization of the approach used in
-PSIS-LOO-CV, where only a single observation is left out at a time and thus 
-$J_i = \{i\}$ for all $i$.
+and then stabilize them using PSIS as described in Section \ref{psis}. The
+function $f_{1:i}$ denotes the posterior distribution based on the first $i$
+observations, that is, $f_{1:i} = p(\theta \,|\, y_{1:i})$, with $f_{1:i^\star}$
+defined analogously. The index set $(i + 1):i^\star$ indicates all observations
+which are part of the data for the actually fitted model $f_{1:i^\star}$ but not
+for the model $f_{1:i}$ whose predictive performance we are trying to
+approximate. The proportional statement arises from the fact that we ignore the
+normalizing constants $p(y_{1:i})$ and $p(y_{1:i^\star})$ of the compared
+posteriors, which leads to a self-normalized variant of PSIS [c.f.
+@vehtari2017loo]. This approach to computing importance ratios is a
+generalization of the approach used in PSIS-LOO-CV, where only a single
+observation is left out at a time.
 
 Starting from $i = N - M$, we gradually *decrease* $i$ by $1$ (i.e., we move
 backwards in time) and repeat the process. At some observation $i$, the
@@ -1149,10 +1231,9 @@ importance sampling fails. We will refer to this particular value of $i$ as
 $i^\star_1$. To identify the value of $i^\star_1$, we check for which value of
 $i$ does the estimated shape parameter $k$ of the generalized Pareto
 distribution first cross a certain threshold $\tau$ [@vehtari2019psis]. Only
-then do we refit the model using only observations up to $i^\star_1$ and then
-restart the process. Until the next refit, we thus have $J_i = \{i+1, \ldots,
-i^\star_1 \}$ for $i < i^\star_1$, as the refitted model only contains the
-observations up to index $i^\star_1$. An illustration of this procedure is shown
+then do we refit the model using only observations up to $i^\star_1$ by setting
+$i^\star = i^\star_1$ and restarting the process.
+An illustration of this procedure is shown
 in Figure \@ref(fig:vis-msap-bw). In some cases we may only need to refit once
 and in other cases we will find a value $i^\star_2$ that requires a second
 refitting, maybe an $i^\star_3$ that requires a third refitting, and so on. We
@@ -1327,7 +1408,7 @@ it could be a promising extention to be studied in the future.
 
 We may also use other measures of predictive performance than the ELPD,
 for instance the RMSE. For a scalar response $y$ and corresponding vector 
-$\hat{y}$ of a toal of $S$ posterior predictions $\hat{y}^{(s)}$, the RSME 
+$\hat{y}$ of a total of $S$ posterior predictions $\hat{y}^{(s)}$, the RSME 
 is defined as 
 
 \begin{equation}
@@ -1337,7 +1418,7 @@ is defined as
 If we predict multiple responses in the future (i.e., perform $M$-SAP with
 $M > 1$), we simply sum the RMSE over all those responses.
 When approximating the RMSE via PSIS, we use the (Pareto smoothed)
-importance weights $w^{(s)}$ (see Section \ref{#psis-MSAP}) to estimate
+importance weights $w^{(s)}$ (see Section \ref{psis-MSAP}) to estimate
 
 \begin{equation}
 \text{RMSE}(y, \hat{y}) \approx
